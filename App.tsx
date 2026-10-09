@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   spineCurveShadow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.15)',
     borderLeftWidth: 2,
     borderColor: 'rgba(255,255,255,0.2)',
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0,0,0,0.08)',
   },
   coverInnerBorder: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     margin: 10,
     marginLeft: 22,
     borderWidth: 1,
