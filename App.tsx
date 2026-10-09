@@ -27,6 +27,7 @@ export default function App() {
   const [modalAnim] = useState(new Animated.Value(0));
   const [pullingAlbumId, setPullingAlbumId] = useState<number | null>(null);
   const [pullAnim] = useState(new Animated.Value(0));
+  const [activeComponent, setActiveComponent] = useState<'album' | 'notes'>('album');
 
   const handleOpenAlbum = (album: typeof ALBUMS[0]) => {
     setPullingAlbumId(album.id);
@@ -60,6 +61,7 @@ export default function App() {
 
   const generatePages = (album: typeof ALBUMS[0]) => {
     return [
+
       // Custom Cover Page
       <View key="cover" style={[styles.coverPage, { backgroundColor: album.color }]}>
         <View style={styles.coverHinge} />
@@ -124,121 +126,143 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-        {/* Realistic Built-In Bookshelf Matching Reference Image */}
-        <View style={styles.bookshelfCabinet}>
-          {/* Render exactly 4 physical shelves for albums */}
-          {Array.from({ length: 4 }).map((_, rowIndex) => {
-            // Put up to 3-4 albums on each shelf
-            const shelfBooks = ALBUMS.slice(rowIndex * 4, (rowIndex + 1) * 4);
+        
+        {/* Toggle Controls */}
+        <View style={{ position: 'absolute', top: 60, zIndex: 10000, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 24, padding: 4 }}>
+          <TouchableOpacity 
+            onPress={() => setActiveComponent('album')} 
+            style={{ paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, backgroundColor: activeComponent === 'album' ? '#fff' : 'transparent', shadowColor: '#000', shadowOpacity: activeComponent === 'album' ? 0.1 : 0, shadowRadius: 4, shadowOffset: {width:0, height:2} }}
+          >
+            <Text style={{ fontWeight: '600', fontSize: 13, color: activeComponent === 'album' ? '#000' : '#666', textTransform: 'uppercase', letterSpacing: 1 }}>Album</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={() => setActiveComponent('notes')} 
+            style={{ paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, backgroundColor: activeComponent === 'notes' ? '#fff' : 'transparent', shadowColor: '#000', shadowOpacity: activeComponent === 'notes' ? 0.1 : 0, shadowRadius: 4, shadowOffset: {width:0, height:2} }}
+          >
+            <Text style={{ fontWeight: '600', fontSize: 13, color: activeComponent === 'notes' ? '#000' : '#666', textTransform: 'uppercase', letterSpacing: 1 }}>Sticky Notes</Text>
+          </TouchableOpacity>
+        </View>
 
-            return (
-              <View key={`shelf-${rowIndex}`} style={styles.shelfContainer}>
-                <View style={styles.booksRow}>
-                  {shelfBooks.map((album) => {
-                    const isPulling = pullingAlbumId === album.id;
+        {activeComponent === 'album' && (
+          <>
+            {/* Realistic Built-In Bookshelf Matching Reference Image */}
+            <View style={styles.bookshelfCabinet}>
+              {/* Render exactly 4 physical shelves for albums */}
+              {Array.from({ length: 4 }).map((_, rowIndex) => {
+                // Put up to 3-4 albums on each shelf
+                const shelfBooks = ALBUMS.slice(rowIndex * 4, (rowIndex + 1) * 4);
 
-                    return (
-                      <TouchableOpacity
-                        key={album.id}
-                        activeOpacity={0.9}
-                        onPress={() => !pullingAlbumId && handleOpenAlbum(album)}
-                      >
-                        <Animated.View style={[
-                          styles.spineContainer,
-                          { backgroundColor: album.color },
-                          isPulling && {
-                            zIndex: 999,
-                            // Fades out instantly at exactly 80% when edge-on
-                            opacity: pullAnim.interpolate({ inputRange: [0, 79.9, 80, 100], outputRange: [1, 1, 0, 0], extrapolate: 'clamp' }),
-                            transform: [
-                              { perspective: 1000 },
-                              { rotateX: pullAnim.interpolate({ inputRange: [0, 5, 30, 80, 100], outputRange: ['0deg', '0deg', '-3deg', '-5deg', '-5deg'], extrapolate: 'clamp' }) },
-                              { rotateZ: pullAnim.interpolate({ inputRange: [0, 10, 30, 80, 100], outputRange: ['0deg', '0deg', '2deg', '3deg', '3deg'], extrapolate: 'clamp' }) },
-                              { translateY: pullAnim.interpolate({ inputRange: [0, 2, 30, 80, 100], outputRange: [0, -1, -15, -80, -100] }) },
-                              { translateX: pullAnim.interpolate({ inputRange: [0, 30, 80, 100], outputRange: [0, -5, -40, -50] }) },
-                              { scale: pullAnim.interpolate({ inputRange: [0, 30, 80, 100], outputRange: [1, 1.05, 1.5, 1.8], extrapolate: 'clamp' }) },
-                              { rotateY: pullAnim.interpolate({ inputRange: [0, 50, 80, 100], outputRange: ['0deg', '0deg', '90deg', '180deg'] }) }
-                            ]
-                          }
-                        ]}>
-                          <Animated.View style={[styles.spineCurveShadow, {
-                            opacity: pullAnim.interpolate({ inputRange: [0, 30, 80], outputRange: [1, 0.5, 0], extrapolate: 'clamp' })
-                          }]} />
+                return (
+                  <View key={`shelf-${rowIndex}`} style={styles.shelfContainer}>
+                    <View style={styles.booksRow}>
+                      {shelfBooks.map((album) => {
+                        const isPulling = pullingAlbumId === album.id;
 
-                          <View style={styles.spineTopDetail} />
-                          <Text style={styles.spineSubtitle}>ALBUM</Text>
+                        return (
+                          <TouchableOpacity
+                            key={album.id}
+                            activeOpacity={0.9}
+                            onPress={() => !pullingAlbumId && handleOpenAlbum(album)}
+                          >
+                            <Animated.View style={[
+                              styles.spineContainer,
+                              { backgroundColor: album.color },
+                              isPulling && {
+                                zIndex: 999,
+                                // Fades out instantly at exactly 80% when edge-on
+                                opacity: pullAnim.interpolate({ inputRange: [0, 79.9, 80, 100], outputRange: [1, 1, 0, 0], extrapolate: 'clamp' }),
+                                transform: [
+                                  { perspective: 1000 },
+                                  { rotateX: pullAnim.interpolate({ inputRange: [0, 5, 30, 80, 100], outputRange: ['0deg', '0deg', '-3deg', '-5deg', '-5deg'], extrapolate: 'clamp' }) },
+                                  { rotateZ: pullAnim.interpolate({ inputRange: [0, 10, 30, 80, 100], outputRange: ['0deg', '0deg', '2deg', '3deg', '3deg'], extrapolate: 'clamp' }) },
+                                  { translateY: pullAnim.interpolate({ inputRange: [0, 2, 30, 80, 100], outputRange: [0, -1, -15, -80, -100] }) },
+                                  { translateX: pullAnim.interpolate({ inputRange: [0, 30, 80, 100], outputRange: [0, -5, -40, -50] }) },
+                                  { scale: pullAnim.interpolate({ inputRange: [0, 30, 80, 100], outputRange: [1, 1.05, 1.5, 1.8], extrapolate: 'clamp' }) },
+                                  { rotateY: pullAnim.interpolate({ inputRange: [0, 50, 80, 100], outputRange: ['0deg', '0deg', '90deg', '180deg'] }) }
+                                ]
+                              }
+                            ]}>
+                              <Animated.View style={[styles.spineCurveShadow, {
+                                opacity: pullAnim.interpolate({ inputRange: [0, 30, 80], outputRange: [1, 0.5, 0], extrapolate: 'clamp' })
+                              }]} />
 
-                          <View style={styles.spineCenterWrap}>
-                            <Text style={styles.spineTitle} numberOfLines={1}>{album.title.toUpperCase()}</Text>
-                          </View>
+                              <View style={styles.spineTopDetail} />
+                              <Text style={styles.spineSubtitle}>ALBUM</Text>
 
-                          <View style={styles.spineBottomDetail} />
-                        </Animated.View>
-                      </TouchableOpacity>
-                    );
-                  })}
+                              <View style={styles.spineCenterWrap}>
+                                <Text style={styles.spineTitle} numberOfLines={1}>{album.title.toUpperCase()}</Text>
+                              </View>
+
+                              <View style={styles.spineBottomDetail} />
+                            </Animated.View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    {/* The Thick Physical Shelf Plank */}
+                    <View style={styles.shelfPlank}>
+                      <View style={styles.shelfPlankHighlight} />
+                      <View style={styles.shelfPlankShadow} />
+                    </View>
+                  </View>
+                );
+              })}
+
+              {/* Bottom Cabinet (matching the photo) */}
+              <View style={styles.bottomCabinet}>
+                <View style={styles.cabinetDoorLeft}>
+                  <View style={styles.cabinetKnobRight} />
                 </View>
-                {/* The Thick Physical Shelf Plank */}
-                <View style={styles.shelfPlank}>
-                  <View style={styles.shelfPlankHighlight} />
-                  <View style={styles.shelfPlankShadow} />
+                <View style={styles.cabinetDoorRight}>
+                  <View style={styles.cabinetKnobLeft} />
                 </View>
               </View>
-            );
-          })}
-
-          {/* Bottom Cabinet (matching the photo) */}
-          <View style={styles.bottomCabinet}>
-            <View style={styles.cabinetDoorLeft}>
-              <View style={styles.cabinetKnobRight} />
             </View>
-            <View style={styles.cabinetDoorRight}>
-              <View style={styles.cabinetKnobLeft} />
-            </View>
-          </View>
-        </View>
 
-        {selectedAlbum && (
-          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]} pointerEvents="box-none">
-            {/* Subtle transparent background to maintain the shelf visibility while blocking touches */}
-            <Animated.View style={[StyleSheet.absoluteFill, {
-              backgroundColor: 'rgba(0,0,0,0.4)',
-              opacity: pullAnim.interpolate({ inputRange: [0, 80, 100], outputRange: [0, 0.5, 1], extrapolate: 'clamp' })
-            }]} />
+            {selectedAlbum && (
+              <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]} pointerEvents="box-none">
+                {/* Subtle transparent background to maintain the shelf visibility while blocking touches */}
+                <Animated.View style={[StyleSheet.absoluteFill, {
+                  backgroundColor: 'rgba(0,0,0,0.4)',
+                  opacity: pullAnim.interpolate({ inputRange: [0, 80, 100], outputRange: [0, 0.5, 1], extrapolate: 'clamp' })
+                }]} />
 
-            <Animated.View style={[styles.modalOverlay, { pointerEvents: 'box-none' }]}>
-              {/* Close Button fixed - Opacity applied directly so it receives touches */}
-              <Animated.View style={[styles.closeButton, { opacity: pullAnim.interpolate({ inputRange: [0, 80, 100], outputRange: [0, 0, 1], extrapolate: 'clamp' }) }]}>
-                <TouchableOpacity style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }} onPress={handleCloseAlbum}>
-                  <Text style={styles.closeText}>✕</Text>
-                </TouchableOpacity>
-              </Animated.View>
+                <Animated.View style={[styles.modalOverlay, { pointerEvents: 'box-none' }]}>
+                  {/* Close Button fixed - Opacity applied directly so it receives touches */}
+                  <Animated.View style={[styles.closeButton, { opacity: pullAnim.interpolate({ inputRange: [0, 80, 100], outputRange: [0, 0, 1], extrapolate: 'clamp' }) }]}>
+                    <TouchableOpacity style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }} onPress={handleCloseAlbum}>
+                      <Text style={styles.closeText}>✕</Text>
+                    </TouchableOpacity>
+                  </Animated.View>
 
-              {/* The 3D Book Cover Flips in during final phase */}
-              <Animated.View style={[styles.modalContent, {
-                opacity: pullAnim.interpolate({ inputRange: [0, 79.9, 80, 100], outputRange: [0.01, 0.01, 1, 1], extrapolate: 'clamp' }),
-                // Dynamic realistic shadow that grows as the book comes out of the shelf
-                shadowColor: '#000',
-                shadowOpacity: pullAnim.interpolate({ inputRange: [80, 100], outputRange: [0.2, 0.5], extrapolate: 'clamp' }),
-                shadowRadius: pullAnim.interpolate({ inputRange: [80, 100], outputRange: [10, 30], extrapolate: 'clamp' }),
-                shadowOffset: { width: 0, height: 15 },
-                transform: [
-                  { perspective: 1000 },
-                  { rotateX: pullAnim.interpolate({ inputRange: [0, 80, 100], outputRange: ['-5deg', '-5deg', '-8deg'] }) },
-                  { rotateY: pullAnim.interpolate({ inputRange: [0, 50, 80, 100], outputRange: ['-180deg', '-180deg', '-90deg', '0deg'] }) },
-                  { scale: pullAnim.interpolate({ inputRange: [0, 80, 100], outputRange: [0.8, 0.9, 1], extrapolate: 'clamp' }) }
-                ]
-              }]}>
-                {isAlbumReady && <PhotoAlbum pages={generatePages(selectedAlbum)} />}
-              </Animated.View>
-            </Animated.View>
-          </View>
+                  {/* The 3D Book Cover Flips in during final phase */}
+                  <Animated.View style={[styles.modalContent, {
+                    opacity: pullAnim.interpolate({ inputRange: [0, 79.9, 80, 100], outputRange: [0.01, 0.01, 1, 1], extrapolate: 'clamp' }),
+                    // Dynamic realistic shadow that grows as the book comes out of the shelf
+                    shadowColor: '#000',
+                    shadowOpacity: pullAnim.interpolate({ inputRange: [80, 100], outputRange: [0.2, 0.5], extrapolate: 'clamp' }),
+                    shadowRadius: pullAnim.interpolate({ inputRange: [80, 100], outputRange: [10, 30], extrapolate: 'clamp' }),
+                    shadowOffset: { width: 0, height: 15 },
+                    transform: [
+                      { perspective: 1000 },
+                      { rotateX: pullAnim.interpolate({ inputRange: [0, 80, 100], outputRange: ['-5deg', '-5deg', '0deg'] }) },
+                      { rotateY: pullAnim.interpolate({ inputRange: [0, 50, 80, 100], outputRange: ['-180deg', '-180deg', '-90deg', '0deg'] }) },
+                      { scale: pullAnim.interpolate({ inputRange: [0, 80, 100], outputRange: [0.8, 0.9, 1], extrapolate: 'clamp' }) }
+                    ]
+                  }]}>
+                    {isAlbumReady && <PhotoAlbum pages={generatePages(selectedAlbum)} />}
+                  </Animated.View>
+                </Animated.View>
+              </View>
+            )}
+          </>
         )}
 
-        {/* Centered Sticky Notes Demo Widget */}
-        <View style={{ position: 'absolute', top: 150, left: 60, zIndex: 9999 }} pointerEvents="box-none">
-          <StickyNotesBundle />
-        </View>
+        {activeComponent === 'notes' && (
+          <View style={{ position: 'absolute', top: 150, left: 60, zIndex: 9999 }} pointerEvents="box-none">
+            <StickyNotesBundle />
+          </View>
+        )}
       </View>
     </GestureHandlerRootView>
   );
@@ -259,6 +283,7 @@ const styles = StyleSheet.create({
   },
   bookshelfCabinet: {
     flex: 1,
+    width: '100%',
     backgroundColor: '#A8A096',
     borderLeftWidth: 16,
     borderRightWidth: 16,

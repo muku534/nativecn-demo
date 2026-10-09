@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Dimensions, Text } from 'react-native';
+import { View, StyleSheet, Dimensions, Text, TextInput, Platform } from 'react-native';
 import {
   Gesture,
   GestureDetector,
@@ -83,6 +83,11 @@ interface StickyNoteProps {
 }
 
 const InteractiveNote: React.FC<StickyNoteProps> = ({ note, onTear, index, isTop }) => {
+  const [noteText, setNoteText] = useState(note.title);
+  const [categoryText, setCategoryText] = useState(`[ ${note.category} ]`);
+  const [timeLabelText, setTimeLabelText] = useState(note.timeLabel.toUpperCase());
+  const [linkText, setLinkText] = useState(note.linkText);
+  const [linkSubText, setLinkSubText] = useState(note.linkSub);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const isTorn = useSharedValue(false);
@@ -156,7 +161,7 @@ const InteractiveNote: React.FC<StickyNoteProps> = ({ note, onTear, index, isTop
   });
 
   const path = useDerivedValue(() => {
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     const cx = NOTE_WIDTH / 2;
     
     p.addRect(Skia.XYWHRect(0, 0, NOTE_WIDTH, NOTE_HEIGHT));
@@ -210,22 +215,23 @@ const InteractiveNote: React.FC<StickyNoteProps> = ({ note, onTear, index, isTop
       }
       p.close();
     }
-    return p;
+    return p.detach();
   });
 
   const headerPath = useDerivedValue(() => {
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     if (path.value) {
       p.addPath(path.value);
     }
-    const rect = Skia.Path.Make();
+    const rect = Skia.PathBuilder.Make();
     rect.addRect(Skia.XYWHRect(-100, -200, NOTE_WIDTH + 200, 255));
-    p.op(rect, PathOp.Intersect);
-    return p;
+    
+    const result = Skia.Path.MakeFromOp(p.detach(), rect.detach(), PathOp.Intersect);
+    return result || Skia.Path.Make();
   });
 
   const slitHighlightPath = useDerivedValue(() => {
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     const cx = NOTE_WIDTH / 2;
     
     let dx = isTorn.value ? frozenDx.value : -translateX.value;
@@ -273,7 +279,7 @@ const InteractiveNote: React.FC<StickyNoteProps> = ({ note, onTear, index, isTop
       }
       p.close();
     }
-    return p;
+    return p.detach();
   });
 
   const shadowBlur = useDerivedValue(() => isDragging.value ? 25 : 8);
@@ -313,20 +319,53 @@ const InteractiveNote: React.FC<StickyNoteProps> = ({ note, onTear, index, isTop
           </Group>
         </Canvas>
 
-        <View style={styles.noteContentContainer} pointerEvents="none">
+        <View style={styles.noteContentContainer} pointerEvents="box-none">
           <View style={styles.stationeryHeader}>
-            <Text style={styles.stationeryCategory}>[ {note.category} ]</Text>
-            <Text style={styles.stationeryTime}>{note.timeLabel.toUpperCase()}</Text>
+            <TextInput 
+              style={styles.stationeryCategory}
+              value={categoryText}
+              onChangeText={setCategoryText}
+              spellCheck={false}
+              autoCorrect={false}
+            />
+            <TextInput 
+              style={styles.stationeryTime}
+              value={timeLabelText}
+              onChangeText={setTimeLabelText}
+              spellCheck={false}
+              autoCorrect={false}
+            />
           </View>
           <View style={styles.headerDivider} />
           
           <View style={styles.mainContent}>
-            <Text style={styles.titleText}>{note.title}</Text>
+            <TextInput 
+              style={styles.titleInput} 
+              value={noteText}
+              onChangeText={setNoteText}
+              multiline
+              spellCheck={false}
+              autoCorrect={false}
+              placeholder="Write a note..."
+              placeholderTextColor="rgba(0,0,0,0.3)"
+            />
           </View>
 
           <View style={styles.footer}>
-            <Text style={styles.footerLinkText}>{note.linkText}</Text>
-            <Text style={styles.footerSubText}>{note.linkSub}</Text>
+            <TextInput 
+              style={styles.footerLinkText}
+              value={linkText}
+              onChangeText={setLinkText}
+              spellCheck={false}
+              autoCorrect={false}
+            />
+            <TextInput 
+              style={styles.footerSubText}
+              value={linkSubText}
+              onChangeText={setLinkSubText}
+              spellCheck={false}
+              autoCorrect={false}
+            />
           </View>
         </View>
       </Animated.View>
@@ -476,6 +515,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: 'rgba(0,0,0,0.85)',
     lineHeight: 34,
+  },
+  titleInput: {
+    fontFamily: Platform.select({ ios: 'Bradley Hand', android: 'cursive', default: 'System' }),
+    fontSize: 32,
+    color: '#1a1a24',
+    lineHeight: 38,
+    flex: 1,
+    textAlignVertical: 'top',
+    padding: 0,
+    margin: 0,
   },
   footer: {
     borderTopWidth: 1,
