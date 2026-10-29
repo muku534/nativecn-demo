@@ -1,20 +1,60 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, SafeAreaView, Text, TouchableOpacity, Modal, Dimensions, ScrollView, ActivityIndicator, Animated, Easing } from 'react-native';
+import { View, StyleSheet, SafeAreaView, Text, TouchableOpacity, Modal, Dimensions, ScrollView, ActivityIndicator, Animated, Easing, StatusBar, Platform } from 'react-native';
 import { BlurView } from '@react-native-community/blur';
 import FastImage from 'react-native-fast-image';
 import PhotoAlbum from './PhotoAlbum';
 import StickyNotesBundle from './StickyNotes';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GhostLamp, CandleJar, PottedPlant, HangingPlant, PhotoFrame, HorizontalBooks, PencilCup, VintageGlobe, SmallVase } from './Decorations';
+import StarsGlobe from './StarsGlobe';
+import StarsFlatMap from './StarsFlatMap';
+import StarsWorld, { WorldMapMode } from './StarsWorld';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const ALBUMS = [
-  { id: 1, title: 'HOWARD BEACH', subtitle: 'A PHOTOGRAPHIC JOURNEY', date: 'SEPTEMBER 2026', imageId: 1018, color: '#34302D' },
-  { id: 2, title: 'SUMMER VIBES', subtitle: 'BEACH & SUN', date: 'AUGUST 2026', imageId: 1040, color: '#A3998A' },
-  { id: 3, title: 'MOUNTAIN PEAKS', subtitle: 'HIKING TRAILS', date: 'JULY 2026', imageId: 1036, color: '#665F54' },
-  { id: 4, title: 'CITY LIGHTS', subtitle: 'URBAN EXPLORATION', date: 'JUNE 2026', imageId: 1043, color: '#2A2F2B' },
-  { id: 5, title: 'DESERT SANDS', subtitle: 'SAFARI ADVENTURE', date: 'MAY 2026', imageId: 1047, color: '#8E7D6A' },
-  { id: 6, title: 'OCEAN WAVES', subtitle: 'SURFING DIARIES', date: 'APRIL 2026', imageId: 1050, color: '#4E4841' },
+  // SHELF 1 (Top)
+  { id: 1, title: 'Atomic Habits', color: '#F0EAD6', thickness: 27, height: 122, titleColor: '#333' },
+  { id: 2, title: 'The Psychology of Money', color: '#4A5D23', thickness: 27, height: 125, titleColor: '#F0EAD6' },
+  { id: 3, title: 'DUNE', color: '#B35A3D', thickness: 25, height: 120, titleColor: '#F0EAD6' },
+  { id: 4, title: 'Sapiens', color: '#E8DCC2', thickness: 27, height: 124, titleColor: '#333' },
+  { id: 5, title: 'The Hobbit', color: '#2C3E50', thickness: 27, height: 122, titleColor: '#E8DCC2' },
+  { id: 6, title: 'A Little Life', color: '#EBE1D0', thickness: 27, height: 120, titleColor: '#333' },
+
+  // SHELF 2
+  { id: 7, title: 'Ikigai', color: '#E6D5C3', thickness: 26, height: 120, titleColor: '#333' },
+  { id: 8, title: 'The Alchemist', color: '#D4A373', thickness: 27, height: 124, titleColor: '#333' },
+  { id: 9, title: 'Mental Focus', color: '#2F4F4F', thickness: 26, height: 122, titleColor: '#F0EAD6' },
+  { id: 10, title: 'Daisy Jones & The Six', color: '#E2A76F', thickness: 27, height: 125, titleColor: '#333' },
+  { id: 11, title: 'Beach Read', color: '#CD5C5C', thickness: 27, height: 120, titleColor: '#111' },
+  { id: 12, title: 'The Silent Patient', color: '#F0EAD6', thickness: 26, height: 123, titleColor: '#333' },
+  { id: 13, title: 'Verity', color: '#1B2631', thickness: 27, height: 125, titleColor: '#D4A373' },
+
+  // SHELF 3
+  { id: 14, title: 'Clean Code', color: '#1C1C1C', thickness: 27, height: 122, titleColor: '#D4A373' },
+  { id: 15, title: 'Design Patterns', color: '#EBE1D0', thickness: 27, height: 124, titleColor: '#333' },
+  { id: 16, title: 'Deep Work', color: '#3A5A40', thickness: 27, height: 120, titleColor: '#D4A373' },
+  { id: 17, title: 'The Pragmatic Programmer', color: '#8B4513', thickness: 27, height: 124, titleColor: '#EBE1D0' },
+  { id: 18, title: 'Think Like a Monk', color: '#E6D5C3', thickness: 27, height: 122, titleColor: '#333' },
+  { id: 19, title: 'Steal Like an Artist', color: '#111111', thickness: 25, height: 118, titleColor: '#FFF' },
+  { id: 20, title: 'Zero to One', color: '#B0C4DE', thickness: 27, height: 122, titleColor: '#333' },
+
+  // SHELF 4
+  { id: 21, title: 'The Subtle Art of Not Giving a F*ck', color: '#EAE1D0', thickness: 27, height: 122, titleColor: '#333' },
+  { id: 22, title: '1984', color: '#A08D7B', thickness: 25, height: 118, titleColor: '#333' },
+  { id: 23, title: 'The Shining', color: '#1A1C20', thickness: 27, height: 124, titleColor: '#D4A373' },
+  { id: 24, title: 'IT', color: '#6A2E2A', thickness: 28, height: 122, titleColor: '#EAE1D0' },
+  { id: 25, title: 'Misery', color: '#E6D5C3', thickness: 26, height: 120, titleColor: '#333' },
+  { id: 26, title: 'Project Hail Mary', color: '#2B2E33', thickness: 28, height: 125, titleColor: '#EAE1D0' },
+
+  // SHELF 5 (Bottom)
+  { id: 27, title: 'The Midnight Library', color: '#1C2833', thickness: 27, height: 124, titleColor: '#D4A373' },
+  { id: 28, title: 'The Seven Husbands of Evelyn Hugo', color: '#8B4513', thickness: 27, height: 125, titleColor: '#EAE1D0' },
+  { id: 29, title: 'Carrie Soto is Back', color: '#6B8E23', thickness: 27, height: 122, titleColor: '#FFF' },
+  { id: 30, title: 'Malibu Rising', color: '#5F9EA0', thickness: 27, height: 124, titleColor: '#FFF' },
+  { id: 31, title: 'Happy Place', color: '#D4A373', thickness: 27, height: 120, titleColor: '#111' },
+  { id: 32, title: 'People We Meet On Vacation', color: '#CD5C5C', thickness: 27, height: 122, titleColor: '#FFF' },
+  { id: 33, title: 'Better Ideas Ahead', color: '#F0EAD6', thickness: 27, height: 124, titleColor: '#333' }
 ];
 
 const innerImages = [
@@ -27,7 +67,10 @@ export default function App() {
   const [modalAnim] = useState(new Animated.Value(0));
   const [pullingAlbumId, setPullingAlbumId] = useState<number | null>(null);
   const [pullAnim] = useState(new Animated.Value(0));
-  const [activeComponent, setActiveComponent] = useState<'album' | 'notes'>('album');
+  const [activeComponent, setActiveComponent] = useState<'album' | 'globe' | 'flatmap'>('globe');
+  const [worldMapMode, setWorldMapMode] = useState<WorldMapMode>('globe');
+  const [selectedCountryCode, setSelectedCountryCode] = useState<string | null>('IN');
+  const [isCosmicInteracting, setIsCosmicInteracting] = useState(false);
 
   const handleOpenAlbum = (album: typeof ALBUMS[0]) => {
     setPullingAlbumId(album.id);
@@ -67,13 +110,13 @@ export default function App() {
         <View style={styles.coverHinge} />
         <View style={styles.coverInnerBorder} />
         <View style={styles.imageContainer}>
-          <FastImage source={{ uri: `https://picsum.photos/id/${album.imageId}/400/600` }} style={styles.coverImage} />
+          <FastImage source={{ uri: `https://picsum.photos/id/${album.id + 20}/400/600` }} style={styles.coverImage} />
         </View>
         <View style={styles.titleContainer}>
-          <Text style={styles.coverSubtitle}>{album.subtitle}</Text>
+          <Text style={styles.coverSubtitle}>{(album as any).subtitle || 'SPECIAL EDITION'}</Text>
           <View style={styles.divider} />
           <Text style={styles.coverTitle}>{album.title}</Text>
-          <Text style={styles.coverDate}>{album.date}</Text>
+          <Text style={styles.coverDate}>{(album as any).date || '2024'}</Text>
         </View>
       </View>,
 
@@ -125,97 +168,270 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-        
-        {/* Toggle Controls */}
-        <View style={{ position: 'absolute', top: 60, zIndex: 10000, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 24, padding: 4 }}>
-          <TouchableOpacity 
-            onPress={() => setActiveComponent('album')} 
-            style={{ paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, backgroundColor: activeComponent === 'album' ? '#fff' : 'transparent', shadowColor: '#000', shadowOpacity: activeComponent === 'album' ? 0.1 : 0, shadowRadius: 4, shadowOffset: {width:0, height:2} }}
-          >
-            <Text style={{ fontWeight: '600', fontSize: 13, color: activeComponent === 'album' ? '#000' : '#666', textTransform: 'uppercase', letterSpacing: 1 }}>Album</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            onPress={() => setActiveComponent('notes')} 
-            style={{ paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, backgroundColor: activeComponent === 'notes' ? '#fff' : 'transparent', shadowColor: '#000', shadowOpacity: activeComponent === 'notes' ? 0.1 : 0, shadowRadius: 4, shadowOffset: {width:0, height:2} }}
-          >
-            <Text style={{ fontWeight: '600', fontSize: 13, color: activeComponent === 'notes' ? '#000' : '#666', textTransform: 'uppercase', letterSpacing: 1 }}>Sticky Notes</Text>
-          </TouchableOpacity>
+      <StatusBar barStyle="light-content" />
+      <View style={[styles.container, activeComponent !== 'album' && styles.darkContainer]}>
+
+        {/* Floating Top Segmented Navigation Bar - temporarily hidden
+        <View style={styles.navHeader} pointerEvents="box-none">
+          <View style={styles.navSegmentContainer} pointerEvents="auto">
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setActiveComponent('album')}
+              style={[
+                styles.navSegmentButton,
+                activeComponent === 'album' && styles.navSegmentButtonActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.navSegmentText,
+                  activeComponent === 'album' && styles.navSegmentTextActive,
+                ]}
+              >
+                📚 Shelf
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setActiveComponent('globe')}
+              style={[
+                styles.navSegmentButton,
+                activeComponent === 'globe' && styles.navSegmentButtonActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.navSegmentText,
+                  activeComponent === 'globe' && styles.navSegmentTextActive,
+                ]}
+              >
+                🌐 Stars Globe
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setActiveComponent('flatmap')}
+              style={[
+                styles.navSegmentButton,
+                activeComponent === 'flatmap' && styles.navSegmentButtonActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.navSegmentText,
+                  activeComponent === 'flatmap' && styles.navSegmentTextActive,
+                ]}
+              >
+                🗺️ Flat Map
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
+        */}
 
         {activeComponent === 'album' && (
           <>
             {/* Realistic Built-In Bookshelf Matching Reference Image */}
             <View style={styles.bookshelfCabinet}>
-              {/* Render exactly 4 physical shelves for albums */}
-              {Array.from({ length: 4 }).map((_, rowIndex) => {
-                // Put up to 3-4 albums on each shelf
-                const shelfBooks = ALBUMS.slice(rowIndex * 4, (rowIndex + 1) * 4);
+              {/* Top Wooden Valance (behind notch & status bar) */}
+              <View style={styles.topValance}>
+                <View style={styles.valanceBevel} />
+              </View>
 
-                return (
-                  <View key={`shelf-${rowIndex}`} style={styles.shelfContainer}>
-                    <View style={styles.booksRow}>
-                      {shelfBooks.map((album) => {
-                        const isPulling = pullingAlbumId === album.id;
+              {/* Side Vertical Wooden Uprights */}
+              <View style={styles.sideUprightLeft} pointerEvents="none" />
+              <View style={styles.sideUprightRight} pointerEvents="none" />
 
-                        return (
-                          <TouchableOpacity
-                            key={album.id}
-                            activeOpacity={0.9}
-                            onPress={() => !pullingAlbumId && handleOpenAlbum(album)}
-                          >
-                            <Animated.View style={[
-                              styles.spineContainer,
-                              { backgroundColor: album.color },
-                              isPulling && {
-                                zIndex: 999,
-                                // Fades out instantly at exactly 80% when edge-on
-                                opacity: pullAnim.interpolate({ inputRange: [0, 79.9, 80, 100], outputRange: [1, 1, 0, 0], extrapolate: 'clamp' }),
-                                transform: [
-                                  { perspective: 1000 },
-                                  { rotateX: pullAnim.interpolate({ inputRange: [0, 5, 30, 80, 100], outputRange: ['0deg', '0deg', '-3deg', '-5deg', '-5deg'], extrapolate: 'clamp' }) },
-                                  { rotateZ: pullAnim.interpolate({ inputRange: [0, 10, 30, 80, 100], outputRange: ['0deg', '0deg', '2deg', '3deg', '3deg'], extrapolate: 'clamp' }) },
-                                  { translateY: pullAnim.interpolate({ inputRange: [0, 2, 30, 80, 100], outputRange: [0, -1, -15, -80, -100] }) },
-                                  { translateX: pullAnim.interpolate({ inputRange: [0, 30, 80, 100], outputRange: [0, -5, -40, -50] }) },
-                                  { scale: pullAnim.interpolate({ inputRange: [0, 30, 80, 100], outputRange: [1, 1.05, 1.5, 1.8], extrapolate: 'clamp' }) },
-                                  { rotateY: pullAnim.interpolate({ inputRange: [0, 50, 80, 100], outputRange: ['0deg', '0deg', '90deg', '180deg'] }) }
-                                ]
-                              }
-                            ]}>
-                              <Animated.View style={[styles.spineCurveShadow, {
-                                opacity: pullAnim.interpolate({ inputRange: [0, 30, 80], outputRange: [1, 0.5, 0], extrapolate: 'clamp' })
-                              }]} />
+              {/* 5 Shelves Area - Evenly filling the height */}
+              <View style={styles.shelvesWrapper}>
+                {Array.from({ length: 5 }).map((_, rowIndex) => {
+                  const shelfBooks = ALBUMS.slice(
+                    rowIndex === 0 ? 0 : rowIndex === 1 ? 6 : rowIndex === 2 ? 13 : rowIndex === 3 ? 20 : 26,
+                    rowIndex === 0 ? 6 : rowIndex === 1 ? 13 : rowIndex === 2 ? 20 : rowIndex === 3 ? 26 : 33
+                  );
 
-                              <View style={styles.spineTopDetail} />
-                              <Text style={styles.spineSubtitle}>ALBUM</Text>
+                  return (
+                    <View key={`shelf-${rowIndex}`} style={styles.shelfContainer}>
+                      {/* Realistic Warm Amber Backwall */}
+                      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#563620' }]} />
+                      {/* Warm ambient LED glow coming from top of the shelf down the backwall */}
+                      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 48, backgroundColor: '#FF9E2C', opacity: 0.28 }} />
+                      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 18, backgroundColor: '#FFE292', opacity: 0.2 }} />
 
-                              <View style={styles.spineCenterWrap}>
-                                <Text style={styles.spineTitle} numberOfLines={1}>{album.title.toUpperCase()}</Text>
+                      {/* Under-shelf LED Strip mounted on ceiling */}
+                      <View style={styles.shelfLedBar} />
+
+                      <View style={styles.booksRow}>
+                        {/* Shelf 1 */}
+                        {rowIndex === 0 && (
+                          <>
+                            <HangingPlant />
+                            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2, paddingLeft: 14 }}>
+                              {shelfBooks.map((album) => {
+                                const isPulling = pullingAlbumId === album.id;
+                                return (
+                                  <TouchableOpacity key={album.id} style={{ marginHorizontal: 1 }} activeOpacity={0.9} onPress={() => !pullingAlbumId && handleOpenAlbum(album)}>
+                                    <Animated.View style={[
+                                      styles.spineContainer,
+                                      { backgroundColor: album.color, width: album.thickness, height: album.height },
+                                    ]}>
+                                      <View style={styles.spineRidges} />
+                                      <Animated.View style={[styles.spineCurveShadow]} />
+                                      <View style={styles.spineCenterWrap}>
+                                        <Text style={[styles.spineTitle, { color: album.titleColor || 'rgba(255,255,255,0.95)' }]} numberOfLines={1}>{album.title}</Text>
+                                      </View>
+                                    </Animated.View>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
+                              <PottedPlant />
+                              <GhostLamp />
+                            </View>
+                          </>
+                        )}
+
+                        {/* Shelf 2 */}
+                        {rowIndex === 1 && (
+                          <>
+                            <View style={{ flexDirection: 'row', alignItems: 'flex-end', zIndex: 1 }}>
+                              <PhotoFrame />
+                              <View style={{ marginLeft: -22, marginBottom: -4 }}>
+                                <CandleJar />
                               </View>
+                              <View style={{ marginLeft: 2 }}>
+                                <SmallVase />
+                              </View>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
+                              {shelfBooks.map((album) => {
+                                const isPulling = pullingAlbumId === album.id;
+                                return (
+                                  <TouchableOpacity key={album.id} style={{ marginHorizontal: 1 }} activeOpacity={0.9} onPress={() => !pullingAlbumId && handleOpenAlbum(album)}>
+                                    <Animated.View style={[
+                                      styles.spineContainer,
+                                      { backgroundColor: album.color, width: album.thickness, height: album.height },
+                                    ]}>
+                                      <View style={styles.spineRidges} />
+                                      <Animated.View style={[styles.spineCurveShadow]} />
+                                      <View style={styles.spineCenterWrap}>
+                                        <Text style={[styles.spineTitle, { color: album.titleColor || 'rgba(255,255,255,0.95)' }]} numberOfLines={1}>{album.title}</Text>
+                                      </View>
+                                    </Animated.View>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                          </>
+                        )}
 
-                              <View style={styles.spineBottomDetail} />
-                            </Animated.View>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                    {/* The Thick Physical Shelf Plank */}
-                    <View style={styles.shelfPlank}>
-                      <View style={styles.shelfPlankHighlight} />
-                      <View style={styles.shelfPlankShadow} />
-                    </View>
-                  </View>
-                );
-              })}
+                        {/* Shelf 3 */}
+                        {rowIndex === 2 && (
+                          <>
+                            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
+                              {shelfBooks.map((album) => {
+                                const isPulling = pullingAlbumId === album.id;
+                                return (
+                                  <TouchableOpacity key={album.id} style={{ marginHorizontal: 1 }} activeOpacity={0.9} onPress={() => !pullingAlbumId && handleOpenAlbum(album)}>
+                                    <Animated.View style={[
+                                      styles.spineContainer,
+                                      { backgroundColor: album.color, width: album.thickness, height: album.height },
+                                    ]}>
+                                      <View style={styles.spineRidges} />
+                                      <Animated.View style={[styles.spineCurveShadow]} />
+                                      <View style={styles.spineCenterWrap}>
+                                        <Text style={[styles.spineTitle, { color: album.titleColor || 'rgba(255,255,255,0.95)' }]} numberOfLines={1}>{album.title}</Text>
+                                      </View>
+                                    </Animated.View>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
+                              <PottedPlant />
+                              <GhostLamp />
+                            </View>
+                          </>
+                        )}
 
-              {/* Bottom Cabinet (matching the photo) */}
-              <View style={styles.bottomCabinet}>
-                <View style={styles.cabinetDoorLeft}>
-                  <View style={styles.cabinetKnobRight} />
-                </View>
-                <View style={styles.cabinetDoorRight}>
-                  <View style={styles.cabinetKnobLeft} />
-                </View>
+                        {/* Shelf 4 */}
+                        {rowIndex === 3 && (
+                          <>
+                            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
+                              {shelfBooks.map((album) => {
+                                const isPulling = pullingAlbumId === album.id;
+                                return (
+                                  <TouchableOpacity key={album.id} style={{ marginHorizontal: 1 }} activeOpacity={0.9} onPress={() => !pullingAlbumId && handleOpenAlbum(album)}>
+                                    <Animated.View style={[
+                                      styles.spineContainer,
+                                      { backgroundColor: album.color, width: album.thickness, height: album.height },
+                                    ]}>
+                                      <View style={styles.spineRidges} />
+                                      <Animated.View style={[styles.spineCurveShadow]} />
+                                      <View style={styles.spineCenterWrap}>
+                                        <Text style={[styles.spineTitle, { color: album.titleColor || 'rgba(255,255,255,0.95)' }]} numberOfLines={1}>{album.title}</Text>
+                                      </View>
+                                    </Animated.View>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                            <View style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
+                              <PhotoFrame />
+                              <HorizontalBooks />
+                            </View>
+                            <PencilCup />
+                          </>
+                        )}
+
+                        {/* Shelf 5 */}
+                        {rowIndex === 4 && (
+                          <>
+                            <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+                              <VintageGlobe />
+                              <View style={{ marginLeft: -12, zIndex: 5 }}>
+                                <SmallVase />
+                              </View>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
+                              {shelfBooks.map((album) => {
+                                const isPulling = pullingAlbumId === album.id;
+                                return (
+                                  <TouchableOpacity key={album.id} style={{ marginHorizontal: 1 }} activeOpacity={0.9} onPress={() => !pullingAlbumId && handleOpenAlbum(album)}>
+                                    <Animated.View style={[
+                                      styles.spineContainer,
+                                      { backgroundColor: album.color, width: album.thickness, height: album.height },
+                                    ]}>
+                                      <View style={styles.spineRidges} />
+                                      <Animated.View style={[styles.spineCurveShadow]} />
+                                      <View style={styles.spineCenterWrap}>
+                                        <Text style={[styles.spineTitle, { color: album.titleColor || 'rgba(255,255,255,0.95)' }]} numberOfLines={1}>{album.title}</Text>
+                                      </View>
+                                    </Animated.View>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                            <PencilCup />
+                          </>
+                        )}
+                      </View>
+                      {/* Physical Wooden Shelf Plank */}
+                      <View style={styles.shelfPlank}>
+                        <View style={styles.shelfPlankHighlight} />
+                        <View style={styles.shelfPlankShadow} />
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+
+              {/* Bottom Wooden Plinth / Baseboard (around home indicator) */}
+              <View style={styles.bottomPlinth}>
+                <View style={styles.bottomPlinthHighlight} />
               </View>
             </View>
 
@@ -258,10 +474,27 @@ export default function App() {
           </>
         )}
 
-        {activeComponent === 'notes' && (
-          <View style={{ position: 'absolute', top: 150, left: 60, zIndex: 9999 }} pointerEvents="box-none">
-            <StickyNotesBundle />
-          </View>
+        {activeComponent !== 'album' && (
+          <ScrollView
+            style={styles.cosmicScrollView}
+            contentContainerStyle={styles.cosmicScrollContent}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={!isCosmicInteracting}
+            bounces={false}
+          >
+            {/* Exact spacing preserved so the globe stays at the exact same vertical position */}
+            <View style={styles.topHeaderSpacer} />
+
+            <StarsWorld
+              mode={worldMapMode}
+              onModeChange={setWorldMapMode}
+              allowModeToggle={true}
+              size={Math.min(SCREEN_WIDTH - 16, 385)}
+              selectedCountryCode={selectedCountryCode}
+              onSelectCountry={(country) => setSelectedCountryCode(country?.code ?? null)}
+              onInteractionChange={setIsCosmicInteracting}
+            />
+          </ScrollView>
         )}
       </View>
     </GestureHandlerRootView>
@@ -271,7 +504,68 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F0E6',
+    backgroundColor: '#382214',
+  },
+  darkContainer: {
+    backgroundColor: '#030712',
+  },
+  navHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingTop: Platform.OS === 'ios' ? 54 : 20,
+    zIndex: 99999,
+    alignItems: 'center',
+  },
+  navSegmentContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    borderRadius: 30,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    gap: 4,
+  },
+  navSegmentButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 24,
+    backgroundColor: 'transparent',
+  },
+  navSegmentButtonActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  navSegmentText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+    letterSpacing: 0.3,
+  },
+  navSegmentTextActive: {
+    color: '#F8FAFC',
+    fontWeight: '700',
+  },
+  cosmicScrollView: {
+    flex: 1,
+    backgroundColor: '#030712',
+  },
+  cosmicScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 54 : 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 20,
+  },
+  topHeaderSpacer: {
+    height: 98,
   },
   headerTitle: {
     fontSize: 24,
@@ -284,128 +578,165 @@ const styles = StyleSheet.create({
   bookshelfCabinet: {
     flex: 1,
     width: '100%',
-    backgroundColor: '#A8A096',
-    borderLeftWidth: 16,
-    borderRightWidth: 16,
-    borderTopWidth: 20,
-    borderColor: '#C6BDB0',
+    backgroundColor: '#4A2E1A',
+    position: 'relative',
+  },
+  topValance: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#442816',
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#2B160B',
+    zIndex: 25,
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  valanceBevel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  sideUprightLeft: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 13,
+    backgroundColor: '#462A17',
+    borderRightWidth: 1,
+    borderRightColor: '#2E190D',
+    zIndex: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    shadowOffset: { width: 2, height: 0 },
+  },
+  sideUprightRight: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 0,
+    width: 13,
+    backgroundColor: '#442816',
+    borderLeftWidth: 1,
+    borderLeftColor: '#2E190D',
+    zIndex: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    shadowOffset: { width: -2, height: 0 },
+  },
+  shelvesWrapper: {
+    flex: 1,
+    width: '100%',
   },
   shelfContainer: {
     flex: 1,
+    width: '100%',
+    position: 'relative',
     justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  shelfLedBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2.5,
+    backgroundColor: '#FFE9A6',
+    shadowColor: '#FFA726',
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+    zIndex: 10,
   },
   booksRow: {
     flexDirection: 'row',
-    paddingHorizontal: 25,
     alignItems: 'flex-end',
-    justifyContent: 'flex-end',
-    zIndex: 10,
-    gap: 2,
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingLeft: 16,
+    paddingRight: 16,
+    zIndex: 2,
+    marginBottom: 0,
   },
   shelfPlank: {
     width: '100%',
     height: 16,
-    backgroundColor: '#C6BDB0',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#B0A79A',
+    backgroundColor: '#4C2F1A',
+    borderTopWidth: 1.5,
+    borderTopColor: '#7A4E2F',
+    borderBottomWidth: 2,
+    borderBottomColor: '#28150A',
     zIndex: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.45,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 3 },
   },
   shelfPlankHighlight: {
     width: '100%',
-    height: 2,
-    backgroundColor: 'rgba(255,255,255,0.4)',
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   shelfPlankShadow: {
     position: 'absolute',
-    top: 16,
-    left: 0,
-    right: 0,
-    height: 25,
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    bottom: 0,
+    width: '100%',
+    height: 4,
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
-  bottomCabinet: {
-    height: 120,
-    flexDirection: 'row',
-    backgroundColor: '#C6BDB0',
-    borderTopWidth: 2,
-    borderColor: '#B0A79A',
+  bottomPlinth: {
+    width: '100%',
+    height: 36,
+    backgroundColor: '#3E2413',
+    borderTopWidth: 1.5,
+    borderTopColor: '#241208',
+    zIndex: 25,
   },
-  cabinetDoorLeft: {
-    flex: 1,
-    borderRightWidth: 1,
-    borderColor: '#A8A096',
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    paddingRight: 15,
-  },
-  cabinetDoorRight: {
-    flex: 1,
-    borderLeftWidth: 1,
-    borderColor: '#D8D0C3',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    paddingLeft: 15,
-  },
-  cabinetKnobRight: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#8B7B61',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    shadowOffset: { width: 1, height: 1 },
-  },
-  cabinetKnobLeft: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#8B7B61',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    shadowOffset: { width: 1, height: 1 },
+  bottomPlinthHighlight: {
+    width: '100%',
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   spineContainer: {
-    width: 32,
-    height: 140,
-    borderTopLeftRadius: 3,
-    borderBottomLeftRadius: 2,
-    borderTopRightRadius: 2,
-    borderBottomRightRadius: 2,
+    borderTopLeftRadius: 4,
+    borderBottomLeftRadius: 3,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 3,
     shadowColor: '#000',
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 4,
-    shadowOffset: { width: -2, height: 2 },
-    elevation: 4,
+    shadowOffset: { width: 2, height: 2 },
+    elevation: 5,
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     overflow: 'hidden',
   },
   spineCurveShadow: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.15)',
-    borderLeftWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'transparent',
+    borderLeftWidth: 2.5,
+    borderLeftColor: 'rgba(255, 255, 255, 0.28)',
+    borderRightWidth: 5,
+    borderRightColor: 'rgba(0, 0, 0, 0.3)',
   },
-  spineTopDetail: {
-    width: '100%',
-    height: 2,
-    backgroundColor: 'rgba(255,255,255,0.4)',
-    marginBottom: 15,
-    zIndex: 2,
-  },
-  spineSubtitle: {
-    fontSize: 5,
-    color: 'rgba(255,255,255,0.7)',
-    fontWeight: '500',
-    letterSpacing: 1,
-    transform: [{ rotate: '90deg' }],
-    width: 40,
-    textAlign: 'center',
-    marginTop: 15,
-    zIndex: 2,
+  spineRidges: {
+    position: 'absolute',
+    top: 14,
+    bottom: 14,
+    left: 0,
+    right: 0,
+    borderTopWidth: 1.5,
+    borderBottomWidth: 1.5,
+    borderColor: 'rgba(0,0,0,0.15)',
+    zIndex: 1,
   },
   spineCenterWrap: {
     flex: 1,
@@ -414,22 +745,12 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   spineTitle: {
-    fontSize: 7,
+    fontSize: 6.8,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.95)',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     transform: [{ rotate: '90deg' }],
-    width: 120,
+    width: 130,
     textAlign: 'center',
-  },
-  spineBottomDetail: {
-    width: '100%',
-    height: 8,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(0,0,0,0.2)',
-    marginBottom: 5,
-    zIndex: 2,
   },
   modalOverlay: {
     flex: 1,
