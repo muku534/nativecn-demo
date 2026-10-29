@@ -1,16 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, SafeAreaView, Text, TouchableOpacity, Modal, Dimensions, ScrollView, ActivityIndicator, Animated, Easing, StatusBar, Platform } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import React, { useState, useRef } from 'react';
+import { View, StyleSheet, Text, TouchableOpacity, Dimensions, ScrollView, StatusBar, Platform } from 'react-native';
 import FastImage from 'react-native-fast-image';
-import PhotoAlbum from './PhotoAlbum';
-import StickyNotesBundle from './StickyNotes';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+  interpolate,
+  Extrapolation,
+  runOnJS,
+} from 'react-native-reanimated';
+import PhotoAlbum, { PhotoAlbumRef, PAGE_WIDTH, ALBUM_RENDER_HEIGHT } from './PhotoAlbum';
+import { EmptyBookSlot, ShelfBookActor, BookRect } from './ShelfBookTransition';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { GhostLamp, CandleJar, PottedPlant, HangingPlant, PhotoFrame, HorizontalBooks, PencilCup, VintageGlobe, SmallVase } from './Decorations';
-import StarsGlobe from './StarsGlobe';
-import StarsFlatMap from './StarsFlatMap';
 import StarsWorld, { WorldMapMode } from './StarsWorld';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const TARGET_RECT: BookRect = {
+  x: (SCREEN_WIDTH - PAGE_WIDTH) / 2,
+  y: (SCREEN_HEIGHT - ALBUM_RENDER_HEIGHT) / 2,
+  width: PAGE_WIDTH,
+  height: ALBUM_RENDER_HEIGHT,
+};
 
 const ALBUMS = [
   // SHELF 1 (Top)
@@ -63,43 +76,225 @@ const innerImages = [
 
 export default function App() {
   const [selectedAlbum, setSelectedAlbum] = useState<typeof ALBUMS[0] | null>(null);
-  const [isAlbumReady, setIsAlbumReady] = useState(false);
-  const [modalAnim] = useState(new Animated.Value(0));
   const [pullingAlbumId, setPullingAlbumId] = useState<number | null>(null);
-  const [pullAnim] = useState(new Animated.Value(0));
-  const [activeComponent, setActiveComponent] = useState<'album' | 'globe' | 'flatmap'>('globe');
+  const [originRect, setOriginRect] = useState<BookRect | null>(null);
+  const [isPhotoAlbumActive, setIsPhotoAlbumActive] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [canTapBackdropToClose, setCanTapBackdropToClose] = useState(false);
+  const [activeComponent, _setActiveComponent] = useState<'album' | 'globe' | 'flatmap'>('album');
   const [worldMapMode, setWorldMapMode] = useState<WorldMapMode>('globe');
   const [selectedCountryCode, setSelectedCountryCode] = useState<string | null>('IN');
   const [isCosmicInteracting, setIsCosmicInteracting] = useState(false);
 
-  const handleOpenAlbum = (album: typeof ALBUMS[0]) => {
+  const pullProgress = useSharedValue(0);
+  const photoAlbumRef = useRef<PhotoAlbumRef>(null);
+  const bookRefs = useRef<{ [id: number]: any }>({});
+  const bookLayouts = useRef<{ [id: number]: BookRect }>({});
+
+  const getFallbackShelfRect = (album: typeof ALBUMS[0]): BookRect => {
+    const cabinetHeight = SCREEN_HEIGHT;
+    const shelfAreaHeight = cabinetHeight - 86;
+    const shelfHeight = shelfAreaHeight / 5;
+
+    let rowIndex = 0;
+    if (album.id <= 6) rowIndex = 0;
+    else if (album.id <= 13) rowIndex = 1;
+    else if (album.id <= 20) rowIndex = 2;
+    else if (album.id <= 26) rowIndex = 3;
+    else rowIndex = 4;
+
+    const shelfTop = 50 + rowIndex * shelfHeight;
+    const bookY = shelfTop + shelfHeight - album.height - 16;
+    const bookX = 30 + ((album.id - 1) % 7) * (album.thickness + 2);
+
+    return {
+      x: bookX,
+      y: bookY,
+      width: album.thickness,
+      height: album.height,
+    };
+  };
+
+  const handleBookPress = (album: typeof ALBUMS[0]) => {
+    if (pullingAlbumId !== null || isAnimating) return;
+    setIsAnimating(true);
+
+    const cached = bookLayouts.current[album.id];
+    if (cached && cached.width > 0 && cached.height > 0) {
+      // Instant execution on exact touch frame with pre-cached coordinates - 0ms delay!
+      startPullOut(album, cached);
+      return;
+    }
+
+    const ref = bookRefs.current[album.id];
+    const fallback = getFallbackShelfRect(album);
+
+    if (ref && typeof ref.measureInWindow === 'function') {
+      ref.measureInWindow((x: number, y: number, width: number, height: number) => {
+        if (width > 0 && height > 0 && !isNaN(x) && !isNaN(y)) {
+          bookLayouts.current[album.id] = { x, y, width, height };
+          startPullOut(album, { x, y, width, height });
+        } else {
+          startPullOut(album, fallback);
+        }
+      });
+    } else {
+      startPullOut(album, fallback);
+    }
+  };
+
+  const startPullOut = (album: typeof ALBUMS[0], rect: BookRect) => {
+    setCanTapBackdropToClose(false);
     setPullingAlbumId(album.id);
     setSelectedAlbum(album);
-    setIsAlbumReady(true);
-    pullAnim.setValue(0);
+    setOriginRect(rect);
+    setIsPhotoAlbumActive(false);
+    pullProgress.value = 0;
 
+    // Authentic, deliberate real-world speed (~1400ms)
+    // 1. Stage 1 (0 -> 0.42, ~588ms): Pull straight out in exact same initial angle (spine facing front)
+    // 2. Stage 2 (0.42 -> 0.88, ~644ms): Mid-air 3D rotation to front cover angle (Image 2) & flight
+    // 3. Stage 3 (0.88 -> 1.00, ~168ms): Cushioned settle in reading position
+    pullProgress.value = withTiming(1, {
+      duration: 1400,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1.0),
+    }, (finished) => {
+      if (finished) {
+        runOnJS(handlePullFinished)();
+      }
+    });
+  };
+
+  const handlePullFinished = () => {
+    setIsPhotoAlbumActive(true);
+    setIsAnimating(false);
+    // Grace period: lock backdrop touch dismiss for 600ms so user touches on the book
+    // never accidentally dismiss the book back into the shelf!
     setTimeout(() => {
-      Animated.sequence([
-        Animated.timing(pullAnim, { toValue: 2, duration: 150, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        Animated.timing(pullAnim, { toValue: 30, duration: 250, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(pullAnim, { toValue: 80, duration: 300, easing: Easing.linear, useNativeDriver: true }),
-        Animated.timing(pullAnim, { toValue: 102, duration: 250, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(pullAnim, { toValue: 100, duration: 150, easing: Easing.inOut(Easing.quad), useNativeDriver: true })
-      ]).start();
-    }, 10);
+      setCanTapBackdropToClose(true);
+    }, 600);
   };
 
   const handleCloseAlbum = () => {
-    Animated.sequence([
-      Animated.timing(pullAnim, { toValue: 80, duration: 300, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-      Animated.timing(pullAnim, { toValue: 20, duration: 350, easing: Easing.linear, useNativeDriver: true }),
-      Animated.timing(pullAnim, { toValue: -2, duration: 250, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      Animated.timing(pullAnim, { toValue: 0, duration: 150, easing: Easing.inOut(Easing.quad), useNativeDriver: true })
-    ]).start(() => {
-      setSelectedAlbum(null);
-      setIsAlbumReady(false);
-      setPullingAlbumId(null);
-    });
+    if (!selectedAlbum) return;
+    if (isAnimating) return;
+    setCanTapBackdropToClose(false);
+    setIsAnimating(true);
+
+    const startReturnFlight = () => {
+      // Switch from PhotoAlbum to ShelfBookActor only once pages are closed
+      setIsPhotoAlbumActive(false);
+      // Put back sequence:
+      // 1. Stage 2 Reversed (1.0 -> 0.42, ~780ms): Flips back to initial angle in mid-air
+      // 2. Stage 1 Reversed (0.42 -> 0.00, ~570ms): Slides straight into shelf slot in exact initial angle
+      pullProgress.value = withTiming(0, {
+        duration: 1350,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1.0),
+      }, (finished) => {
+        if (finished) {
+          runOnJS(handlePutBackFinished)();
+        }
+      });
+    };
+
+    if (photoAlbumRef.current && typeof photoAlbumRef.current.closeBook === 'function') {
+      let closed = false;
+      const safeClose = () => {
+        if (closed) return;
+        closed = true;
+        startReturnFlight();
+      };
+
+      // Smoothly spring pages shut to cover
+      photoAlbumRef.current.closeBook(safeClose);
+
+      // Fail-safe: ensure return flight executes even if worklet callback is dropped
+      setTimeout(safeClose, 400);
+    } else {
+      startReturnFlight();
+    }
+  };
+
+  const handlePutBackFinished = () => {
+    setSelectedAlbum(null);
+    setPullingAlbumId(null);
+    setOriginRect(null);
+    setIsPhotoAlbumActive(false);
+    setIsAnimating(false);
+    setCanTapBackdropToClose(false);
+  };
+
+  const backdropStyle = useAnimatedStyle(() => {
+    const p = pullProgress.value;
+    // During extraction (p <= 0.32), backdrop stays subtle (0 to 0.12) so shelf is clearly visible
+    // During flight & reading position (p: 0.32 -> 1.0), deep warm walnut dimming (0.12 -> 0.90) so shelf highlights never show through
+    const opacity = interpolate(p, [0, 0.32, 0.85, 1], [0, 0.12, 0.88, 0.90], Extrapolation.CLAMP);
+    return {
+      opacity,
+    };
+  });
+
+  const topHeaderStyle = useAnimatedStyle(() => {
+    const p = pullProgress.value;
+    const opacity = interpolate(p, [0.75, 1], [0, 1], Extrapolation.CLAMP);
+    const translateY = interpolate(p, [0.75, 1], [-15, 0], Extrapolation.CLAMP);
+    return {
+      opacity,
+      transform: [{ translateY }],
+    };
+  });
+
+  const renderShelfBook = (album: typeof ALBUMS[0]) => {
+    const isPulling = pullingAlbumId === album.id;
+    if (isPulling) {
+      return (
+        <EmptyBookSlot
+          key={album.id}
+          width={album.thickness}
+          height={album.height}
+        />
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        key={album.id}
+        style={{ marginHorizontal: 1 }}
+        activeOpacity={0.88}
+        onPress={() => handleBookPress(album)}
+      >
+        <View
+          ref={(el) => {
+            bookRefs.current[album.id] = el;
+          }}
+          onLayout={() => {
+            const el = bookRefs.current[album.id];
+            if (el && typeof el.measureInWindow === 'function') {
+              el.measureInWindow((x: number, y: number, width: number, height: number) => {
+                if (width > 0 && height > 0 && !isNaN(x) && !isNaN(y)) {
+                  bookLayouts.current[album.id] = { x, y, width, height };
+                }
+              });
+            }
+          }}
+          style={[
+            styles.spineContainer,
+            { backgroundColor: album.color, width: album.thickness, height: album.height },
+          ]}
+        >
+          <View style={styles.spineRidges} />
+          <View style={styles.spineCurveShadow} />
+          <View style={styles.spineCenterWrap}>
+            <Text
+              style={[styles.spineTitle, { color: album.titleColor || 'rgba(255,255,255,0.95)' }]}
+              numberOfLines={1}
+            >
+              {album.title}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   const generatePages = (album: typeof ALBUMS[0]) => {
@@ -269,23 +464,7 @@ export default function App() {
                           <>
                             <HangingPlant />
                             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2, paddingLeft: 14 }}>
-                              {shelfBooks.map((album) => {
-                                const isPulling = pullingAlbumId === album.id;
-                                return (
-                                  <TouchableOpacity key={album.id} style={{ marginHorizontal: 1 }} activeOpacity={0.9} onPress={() => !pullingAlbumId && handleOpenAlbum(album)}>
-                                    <Animated.View style={[
-                                      styles.spineContainer,
-                                      { backgroundColor: album.color, width: album.thickness, height: album.height },
-                                    ]}>
-                                      <View style={styles.spineRidges} />
-                                      <Animated.View style={[styles.spineCurveShadow]} />
-                                      <View style={styles.spineCenterWrap}>
-                                        <Text style={[styles.spineTitle, { color: album.titleColor || 'rgba(255,255,255,0.95)' }]} numberOfLines={1}>{album.title}</Text>
-                                      </View>
-                                    </Animated.View>
-                                  </TouchableOpacity>
-                                );
-                              })}
+                              {shelfBooks.map(renderShelfBook)}
                             </View>
                             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
                               <PottedPlant />
@@ -307,23 +486,7 @@ export default function App() {
                               </View>
                             </View>
                             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
-                              {shelfBooks.map((album) => {
-                                const isPulling = pullingAlbumId === album.id;
-                                return (
-                                  <TouchableOpacity key={album.id} style={{ marginHorizontal: 1 }} activeOpacity={0.9} onPress={() => !pullingAlbumId && handleOpenAlbum(album)}>
-                                    <Animated.View style={[
-                                      styles.spineContainer,
-                                      { backgroundColor: album.color, width: album.thickness, height: album.height },
-                                    ]}>
-                                      <View style={styles.spineRidges} />
-                                      <Animated.View style={[styles.spineCurveShadow]} />
-                                      <View style={styles.spineCenterWrap}>
-                                        <Text style={[styles.spineTitle, { color: album.titleColor || 'rgba(255,255,255,0.95)' }]} numberOfLines={1}>{album.title}</Text>
-                                      </View>
-                                    </Animated.View>
-                                  </TouchableOpacity>
-                                );
-                              })}
+                              {shelfBooks.map(renderShelfBook)}
                             </View>
                           </>
                         )}
@@ -332,23 +495,7 @@ export default function App() {
                         {rowIndex === 2 && (
                           <>
                             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
-                              {shelfBooks.map((album) => {
-                                const isPulling = pullingAlbumId === album.id;
-                                return (
-                                  <TouchableOpacity key={album.id} style={{ marginHorizontal: 1 }} activeOpacity={0.9} onPress={() => !pullingAlbumId && handleOpenAlbum(album)}>
-                                    <Animated.View style={[
-                                      styles.spineContainer,
-                                      { backgroundColor: album.color, width: album.thickness, height: album.height },
-                                    ]}>
-                                      <View style={styles.spineRidges} />
-                                      <Animated.View style={[styles.spineCurveShadow]} />
-                                      <View style={styles.spineCenterWrap}>
-                                        <Text style={[styles.spineTitle, { color: album.titleColor || 'rgba(255,255,255,0.95)' }]} numberOfLines={1}>{album.title}</Text>
-                                      </View>
-                                    </Animated.View>
-                                  </TouchableOpacity>
-                                );
-                              })}
+                              {shelfBooks.map(renderShelfBook)}
                             </View>
                             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
                               <PottedPlant />
@@ -361,23 +508,7 @@ export default function App() {
                         {rowIndex === 3 && (
                           <>
                             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
-                              {shelfBooks.map((album) => {
-                                const isPulling = pullingAlbumId === album.id;
-                                return (
-                                  <TouchableOpacity key={album.id} style={{ marginHorizontal: 1 }} activeOpacity={0.9} onPress={() => !pullingAlbumId && handleOpenAlbum(album)}>
-                                    <Animated.View style={[
-                                      styles.spineContainer,
-                                      { backgroundColor: album.color, width: album.thickness, height: album.height },
-                                    ]}>
-                                      <View style={styles.spineRidges} />
-                                      <Animated.View style={[styles.spineCurveShadow]} />
-                                      <View style={styles.spineCenterWrap}>
-                                        <Text style={[styles.spineTitle, { color: album.titleColor || 'rgba(255,255,255,0.95)' }]} numberOfLines={1}>{album.title}</Text>
-                                      </View>
-                                    </Animated.View>
-                                  </TouchableOpacity>
-                                );
-                              })}
+                              {shelfBooks.map(renderShelfBook)}
                             </View>
                             <View style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
                               <PhotoFrame />
@@ -397,23 +528,7 @@ export default function App() {
                               </View>
                             </View>
                             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
-                              {shelfBooks.map((album) => {
-                                const isPulling = pullingAlbumId === album.id;
-                                return (
-                                  <TouchableOpacity key={album.id} style={{ marginHorizontal: 1 }} activeOpacity={0.9} onPress={() => !pullingAlbumId && handleOpenAlbum(album)}>
-                                    <Animated.View style={[
-                                      styles.spineContainer,
-                                      { backgroundColor: album.color, width: album.thickness, height: album.height },
-                                    ]}>
-                                      <View style={styles.spineRidges} />
-                                      <Animated.View style={[styles.spineCurveShadow]} />
-                                      <View style={styles.spineCenterWrap}>
-                                        <Text style={[styles.spineTitle, { color: album.titleColor || 'rgba(255,255,255,0.95)' }]} numberOfLines={1}>{album.title}</Text>
-                                      </View>
-                                    </Animated.View>
-                                  </TouchableOpacity>
-                                );
-                              })}
+                              {shelfBooks.map(renderShelfBook)}
                             </View>
                             <PencilCup />
                           </>
@@ -435,39 +550,56 @@ export default function App() {
               </View>
             </View>
 
-            {selectedAlbum && (
+            {selectedAlbum && originRect && (
               <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]} pointerEvents="box-none">
-                {/* Subtle transparent background to maintain the shelf visibility while blocking touches */}
-                <Animated.View style={[StyleSheet.absoluteFill, {
-                  backgroundColor: 'rgba(0,0,0,0.4)',
-                  opacity: pullAnim.interpolate({ inputRange: [0, 80, 100], outputRange: [0, 0.5, 1], extrapolate: 'clamp' })
-                }]} />
+                {/* 1. Warm Ambient Backdrop Dimming */}
+                <Animated.View
+                  style={[styles.ambientBackdrop, backdropStyle]}
+                  pointerEvents={canTapBackdropToClose ? 'auto' : 'none'}
+                >
+                  <TouchableOpacity
+                    style={StyleSheet.absoluteFill}
+                    activeOpacity={1}
+                    disabled={!canTapBackdropToClose}
+                    onPress={handleCloseAlbum}
+                  />
+                </Animated.View>
 
-                <Animated.View style={[styles.modalOverlay, { pointerEvents: 'box-none' }]}>
-                  {/* Close Button fixed - Opacity applied directly so it receives touches */}
-                  <Animated.View style={[styles.closeButton, { opacity: pullAnim.interpolate({ inputRange: [0, 80, 100], outputRange: [0, 0, 1], extrapolate: 'clamp' }) }]}>
-                    <TouchableOpacity style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }} onPress={handleCloseAlbum}>
-                      <Text style={styles.closeText}>✕</Text>
-                    </TouchableOpacity>
-                  </Animated.View>
+                {/* 2. The Authentic 3D Book Actor (visible during extraction, flight, and put-back) */}
+                {!isPhotoAlbumActive && (
+                  <ShelfBookActor
+                    album={selectedAlbum}
+                    origin={originRect}
+                    target={TARGET_RECT}
+                    pullProgress={pullProgress}
+                  />
+                )}
 
-                  {/* The 3D Book Cover Flips in during final phase */}
-                  <Animated.View style={[styles.modalContent, {
-                    opacity: pullAnim.interpolate({ inputRange: [0, 79.9, 80, 100], outputRange: [0.01, 0.01, 1, 1], extrapolate: 'clamp' }),
-                    // Dynamic realistic shadow that grows as the book comes out of the shelf
-                    shadowColor: '#000',
-                    shadowOpacity: pullAnim.interpolate({ inputRange: [80, 100], outputRange: [0.2, 0.5], extrapolate: 'clamp' }),
-                    shadowRadius: pullAnim.interpolate({ inputRange: [80, 100], outputRange: [10, 30], extrapolate: 'clamp' }),
-                    shadowOffset: { width: 0, height: 15 },
-                    transform: [
-                      { perspective: 1000 },
-                      { rotateX: pullAnim.interpolate({ inputRange: [0, 80, 100], outputRange: ['-5deg', '-5deg', '0deg'] }) },
-                      { rotateY: pullAnim.interpolate({ inputRange: [0, 50, 80, 100], outputRange: ['-180deg', '-180deg', '-90deg', '0deg'] }) },
-                      { scale: pullAnim.interpolate({ inputRange: [0, 80, 100], outputRange: [0.8, 0.9, 1], extrapolate: 'clamp' }) }
-                    ]
-                  }]}>
-                    {isAlbumReady && <PhotoAlbum pages={generatePages(selectedAlbum)} />}
-                  </Animated.View>
+                {/* 3. Interactive PhotoAlbum (seamlessly active in hands) */}
+                {isPhotoAlbumActive && (
+                  <View style={styles.interactiveAlbumContainer}>
+                    <PhotoAlbum
+                      ref={photoAlbumRef}
+                      pages={generatePages(selectedAlbum)}
+                    />
+                  </View>
+                )}
+
+                {/* 4. Top Action Bar: Return to Shelf (rendered LAST so it's always topmost and touchable) */}
+                <Animated.View style={[styles.topActionHeader, topHeaderStyle]} pointerEvents="box-none">
+                  <TouchableOpacity
+                    style={styles.returnButton}
+                    activeOpacity={0.8}
+                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                    onPress={handleCloseAlbum}
+                  >
+                    <Text style={styles.returnButtonIcon}>←</Text>
+                    <Text style={styles.returnButtonText}>Return to Shelf</Text>
+                  </TouchableOpacity>
+
+                  <View style={styles.bookInfoPill}>
+                    <Text style={styles.bookInfoTitle} numberOfLines={1}>{selectedAlbum.title}</Text>
+                  </View>
                 </Animated.View>
               </View>
             )}
@@ -752,34 +884,66 @@ const styles = StyleSheet.create({
     width: 130,
     textAlign: 'center',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    justifyContent: 'center',
-    alignItems: 'center',
+  ambientBackdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#0D0704',
   },
-  closeButton: {
+  topActionHeader: {
     position: 'absolute',
-    top: 60,
-    right: 24,
-    zIndex: 100,
-    width: 40,
-    height: 40,
+    top: Platform.OS === 'ios' ? 54 : 24,
+    left: 16,
+    right: 16,
+    zIndex: 9999,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'space-between',
+  },
+  returnButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
   },
-  closeText: {
-    fontSize: 18,
-    color: '#D7B86A',
+  returnButtonIcon: {
+    fontSize: 14,
+    color: '#FFE6B0',
+    marginRight: 6,
+    fontWeight: '700',
+  },
+  returnButtonText: {
+    fontSize: 12,
     fontWeight: '600',
+    color: '#F8FAFC',
+    letterSpacing: 0.3,
   },
-  modalContent: {
-    flex: 1,
-    width: '100%',
+  bookInfoPill: {
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    maxWidth: 160,
+  },
+  bookInfoTitle: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '500',
+    letterSpacing: 0.4,
+  },
+  interactiveAlbumContainer: {
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
+    pointerEvents: 'box-none',
   },
   pageImage: {
     width: '100%',

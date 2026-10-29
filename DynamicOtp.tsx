@@ -43,7 +43,7 @@ const SPRING_CONFIG = {
 export function DynamicOtp({ onComplete, status = 'idle' }: DynamicOtpProps) {
   const [code, setCode] = useState('');
   const [isFocused, setIsFocused] = useState(false);
-  const inputRef = useRef<{ focus: () => void; blur: () => void }>(null);
+  const inputRef = useRef<any>(null);
 
   // Animation values
   const morphProgress = useSharedValue(0); // 0 = Horizontal, 1 = Diamond

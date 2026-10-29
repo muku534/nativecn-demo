@@ -1,10 +1,8 @@
-import React from 'react';
+import React, { forwardRef, useImperativeHandle } from 'react';
 import {
     View,
     Dimensions,
     StyleSheet,
-    Image,
-    Text,
 } from 'react-native';
 
 import Animated, {
@@ -15,22 +13,20 @@ import Animated, {
     useDerivedValue,
     withSpring,
     SharedValue,
+    runOnJS,
 } from 'react-native-reanimated';
 
 import {
     Gesture,
     GestureDetector,
-    GestureHandlerRootView,
 } from 'react-native-gesture-handler';
-
-
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const ALBUM_WIDTH = SCREEN_WIDTH - 32;
-const ALBUM_RENDER_HEIGHT = ALBUM_WIDTH * 0.75;
+export const ALBUM_WIDTH = SCREEN_WIDTH - 32;
+export const ALBUM_RENDER_HEIGHT = ALBUM_WIDTH * 0.75;
 
-const PAGE_WIDTH = ALBUM_WIDTH / 2;
+export const PAGE_WIDTH = ALBUM_WIDTH / 2;
 
 const SPRING = {
     damping: 24,
@@ -40,8 +36,14 @@ const SPRING = {
     restSpeedThreshold: 0.01,
 };
 
-interface PhotoAlbumProps {
+export interface PhotoAlbumProps {
     pages: React.ReactNode[];
+    onProgressChange?: (progress: number) => void;
+}
+
+export interface PhotoAlbumRef {
+    closeBook: (onClosed?: () => void) => void;
+    getProgress: () => number;
 }
 
 const N = 12;
@@ -85,7 +87,7 @@ const Strip = ({
             // Progressive bend: outer strips bend more than inner strips
             // This creates a natural cylindrical curl like a real page turning
             const stripFactor = stripIndex / (N - 1);
-            const maxBendForStrip = 32 * (0.15 + 0.85 * stripFactor); // Increased bend for more realistic page curl
+            const maxBendForStrip = 32 * (0.15 + 0.85 * stripFactor);
             const bend = interpolate(p, [0, 0.5, 1], [0, maxBendForStrip, 0], Extrapolation.CLAMP);
             return {
                 transform: [
@@ -101,7 +103,6 @@ const Strip = ({
     const shift = -stripIndex * STRIP_WIDTH;
 
     // Use the spine's rotation to determine visibility so the entire page flips at the exact same moment.
-    // This prevents a patchwork of front/back faces from rendering simultaneously while the page is bent.
     const spineRotation = useDerivedValue(() => {
         return interpolate(localProgress.value, [0, 1], [0, -180], Extrapolation.CLAMP);
     });
@@ -173,9 +174,7 @@ const Page = ({
     // Cast shadow: the turning page casts a shadow onto the page underneath
     const castShadowStyle = useAnimatedStyle(() => {
         const p = localProgress.value;
-        // Shadow is strongest when page is mid-turn, gone when flat
         const shadowOpacity = interpolate(p, [0, 0.3, 0.5, 0.7, 1], [0, 0.18, 0.25, 0.18, 0], Extrapolation.CLAMP);
-        // Shadow offset moves from right to left as page turns
         const shadowX = interpolate(p, [0, 0.5, 1], [8, 0, -8], Extrapolation.CLAMP);
         return {
             shadowColor: '#000',
@@ -210,65 +209,6 @@ const Page = ({
     );
 };
 
-// Book thickness — shows stacked page edges on all sides
-const BookThickness = ({ progress, sheetCount }: { progress: SharedValue<number>; sheetCount: number }) => {
-    // Right page stack (unturned pages)
-    const rightEdgeStyle = useAnimatedStyle(() => {
-        const p = progress.value;
-        const rightPages = sheetCount - p;
-        const thickness = interpolate(rightPages, [0, sheetCount], [0, 5], Extrapolation.CLAMP);
-        // Fade out right edge completely when book is closed (p=0)
-        return {
-            width: thickness,
-            right: -thickness,
-            opacity: interpolate(p, [0, 0.5, 1], [0, 1, 1], Extrapolation.CLAMP),
-        };
-    });
-
-    // Left page stack (turned pages)
-    const leftEdgeStyle = useAnimatedStyle(() => {
-        const p = progress.value;
-        const leftPages = p;
-        const thickness = interpolate(leftPages, [0, sheetCount], [0, 5], Extrapolation.CLAMP);
-        // Fade out left edge completely when book is fully open at the end
-        return {
-            width: thickness,
-            left: -thickness,
-            opacity: interpolate(p, [sheetCount - 1, sheetCount - 0.5, sheetCount], [1, 1, 0], Extrapolation.CLAMP),
-        };
-    });
-
-    // Top page stack
-    const topEdgeStyle = useAnimatedStyle(() => {
-        const p = progress.value;
-        const openness = interpolate(p, [0, 1, sheetCount - 1, sheetCount], [0, 1, 1, 0], Extrapolation.CLAMP);
-        return {
-            height: 3,
-            top: -3,
-            opacity: openness,
-        };
-    });
-
-    // Bottom page stack
-    const bottomEdgeStyle = useAnimatedStyle(() => {
-        const p = progress.value;
-        const openness = interpolate(p, [0, 1, sheetCount - 1, sheetCount], [0, 1, 1, 0], Extrapolation.CLAMP);
-        return {
-            height: 3,
-            bottom: -3,
-            opacity: openness,
-        };
-    });
-
-    return (
-        <>
-            {/* Right page stack */}
-            <Animated.View style={[styles.sideEdge, rightEdgeStyle]} pointerEvents="none" />
-            {/* Left page stack */}
-            <Animated.View style={[styles.sideEdge, leftEdgeStyle]} pointerEvents="none" />
-        </>
-    );
-};
 
 // Spine gutter — deep V-shaped shadow like a real book binding
 const SpineGutter = ({ progress, sheetCount }: { progress: SharedValue<number>; sheetCount: number }) => {
@@ -280,7 +220,6 @@ const SpineGutter = ({ progress, sheetCount }: { progress: SharedValue<number>; 
 
     return (
         <Animated.View style={[styles.gutterContainer, gutterOpacity]} pointerEvents="none">
-            {/* Deep V-shaped shadow layers — perfectly centered on PAGE_WIDTH for smooth falloff */}
             <View style={[styles.gutterLayer, { left: PAGE_WIDTH - 30, width: 60, backgroundColor: 'rgba(0,0,0,0.02)' }]} />
             <View style={[styles.gutterLayer, { left: PAGE_WIDTH - 20, width: 40, backgroundColor: 'rgba(0,0,0,0.04)' }]} />
             <View style={[styles.gutterLayer, { left: PAGE_WIDTH - 12, width: 24, backgroundColor: 'rgba(0,0,0,0.08)' }]} />
@@ -294,11 +233,9 @@ const SpineGutter = ({ progress, sheetCount }: { progress: SharedValue<number>; 
 const BookSpine = ({ progress, sheetCount }: { progress: SharedValue<number>; sheetCount: number }) => {
     const spineStyle = useAnimatedStyle(() => {
         const p = progress.value;
-        // When closed: wide, fully opaque
         const closedFront = interpolate(p, [0, 0.5], [1, 0], Extrapolation.CLAMP);
         const closedBack = interpolate(p, [sheetCount - 0.5, sheetCount], [0, 1], Extrapolation.CLAMP);
         const closedness = Math.max(closedFront, closedBack);
-        // When open: thin, still visible
         const openness = interpolate(p, [0.3, 1, sheetCount - 1, sheetCount - 0.3], [0, 1, 1, 0], Extrapolation.CLAMP);
 
         const width = closedness > 0
@@ -307,8 +244,6 @@ const BookSpine = ({ progress, sheetCount }: { progress: SharedValue<number>; sh
 
         const opacity = Math.max(closedness, openness * 0.85);
 
-        // When closed, spine shadow should be inside the left edge (0 to 8).
-        // When open, it should be centered between the pages (-width/2).
         const leftPos = closedness > 0
             ? interpolate(closedness, [0, 1], [-width / 2, 0], Extrapolation.CLAMP)
             : -width / 2;
@@ -325,18 +260,51 @@ const BookSpine = ({ progress, sheetCount }: { progress: SharedValue<number>; sh
     );
 };
 
-const PhotoAlbum = ({ pages }: PhotoAlbumProps) => {
+const PhotoAlbum = forwardRef<PhotoAlbumRef, PhotoAlbumProps>(({ pages, onProgressChange }, ref) => {
     const progress = useSharedValue(0);
     const context = useSharedValue(0);
     const sheetCount = Math.ceil(pages.length / 2);
 
-    const gesture = Gesture.Pan()
+    useImperativeHandle(ref, () => ({
+        closeBook: (onClosed) => {
+            if (progress.value > 0.05) {
+                let fired = false;
+                const done = () => {
+                    if (fired) return;
+                    fired = true;
+                    if (onClosed) onClosed();
+                };
+
+                const workletDone = () => {
+                    'worklet';
+                    runOnJS(done)();
+                };
+
+                progress.value = withSpring(0, SPRING, (finished) => {
+                    'worklet';
+                    if (finished) {
+                        workletDone();
+                    }
+                });
+
+                setTimeout(done, 380);
+            } else {
+                if (onClosed) onClosed();
+            }
+        },
+        getProgress: () => progress.value,
+    }));
+
+    const panGesture = Gesture.Pan()
         .onBegin(() => {
             context.value = progress.value;
         })
         .onUpdate((e) => {
             const deltaProgress = -e.translationX / PAGE_WIDTH;
             progress.value = Math.max(0, Math.min(sheetCount, context.value + deltaProgress));
+            if (onProgressChange) {
+                runOnJS(onProgressChange)(progress.value);
+            }
         })
         .onEnd((e) => {
             const velocity = -e.velocityX / PAGE_WIDTH;
@@ -346,8 +314,40 @@ const PhotoAlbum = ({ pages }: PhotoAlbumProps) => {
             target = Math.max(currentResting - 1, Math.min(currentResting + 1, target));
             target = Math.max(0, Math.min(sheetCount, target));
 
-            progress.value = withSpring(target, SPRING);
+            progress.value = withSpring(target, SPRING, (finished) => {
+                if (finished && onProgressChange) {
+                    runOnJS(onProgressChange)(target);
+                }
+            });
         });
+
+    const tapGesture = Gesture.Tap()
+        .maxDuration(250)
+        .onEnd((e) => {
+            const current = Math.round(progress.value);
+            if (current === 0) {
+                // Tapped anywhere on the closed front cover -> flip open to page 1
+                progress.value = withSpring(1, SPRING, () => {
+                    if (onProgressChange) runOnJS(onProgressChange)(1);
+                });
+            } else if (e.x > PAGE_WIDTH) {
+                // Tapped right page -> flip forward
+                if (current < sheetCount) {
+                    progress.value = withSpring(current + 1, SPRING, () => {
+                        if (onProgressChange) runOnJS(onProgressChange)(current + 1);
+                    });
+                }
+            } else {
+                // Tapped left page -> flip backward
+                if (current > 0) {
+                    progress.value = withSpring(current - 1, SPRING, () => {
+                        if (onProgressChange) runOnJS(onProgressChange)(current - 1);
+                    });
+                }
+            }
+        });
+
+    const gesture = Gesture.Exclusive(panGesture, tapGesture);
 
     const albumAnimatedStyle = useAnimatedStyle(() => {
         const p = progress.value;
@@ -384,7 +384,6 @@ const PhotoAlbum = ({ pages }: PhotoAlbumProps) => {
     return (
         <GestureDetector gesture={gesture}>
             <Animated.View style={[styles.albumWrapper, albumAnimatedStyle, bookShadowStyle]}>
-
                 {Array.from({ length: sheetCount }).map((_, index) => {
                     const frontPage = pages[index * 2];
                     const backPage = pages[index * 2 + 1];
@@ -406,10 +405,7 @@ const PhotoAlbum = ({ pages }: PhotoAlbumProps) => {
                     );
                 })}
 
-                {/* Book page thickness on edges */}
-                <BookThickness progress={progress} sheetCount={sheetCount} />
-
-                {/* Spine gutter shadow */}
+                {/* Central spine gutter shadow */}
                 <SpineGutter progress={progress} sheetCount={sheetCount} />
 
                 {/* Book spine */}
@@ -417,10 +413,9 @@ const PhotoAlbum = ({ pages }: PhotoAlbumProps) => {
             </Animated.View>
         </GestureDetector>
     );
-};
+});
 
 export default PhotoAlbum;
-
 
 const styles = StyleSheet.create({
     container: {
@@ -458,7 +453,6 @@ const styles = StyleSheet.create({
         width: PAGE_WIDTH,
         height: '100%',
         backgroundColor: 'transparent',
-        // No padding — cover fills edge to edge
     },
     coverStripFace: {
         backgroundColor: 'transparent',
@@ -520,10 +514,9 @@ const styles = StyleSheet.create({
     },
     gutterLayer: {
         position: 'absolute',
-        left: PAGE_WIDTH - 14,  // Will be offset by width/2
+        left: PAGE_WIDTH - 14,
         top: 0,
         bottom: 0,
-        // width is set inline
     },
     innerPageShadow: {
         position: 'absolute',
@@ -536,29 +529,5 @@ const styles = StyleSheet.create({
         top: 0,
         bottom: 0,
         backgroundColor: 'rgba(0,0,0,0.03)',
-    },
-
-    // Page stack edges — side
-    sideEdge: {
-        position: 'absolute',
-        top: 1,
-        bottom: 1,
-        backgroundColor: '#eee9e2',
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(0,0,0,0.06)',
-        zIndex: -1,
-    },
-
-    // Page stack edges — top/bottom
-    topBottomEdge: {
-        position: 'absolute',
-        left: 1,
-        right: 1,
-        backgroundColor: '#eee9e2',
-        borderLeftWidth: StyleSheet.hairlineWidth,
-        borderRightWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(0,0,0,0.06)',
-        zIndex: -1,
     },
 });

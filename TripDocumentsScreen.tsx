@@ -9,7 +9,7 @@ export function TripDocumentsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle="dark-content" />
       
       {/* Header mimicking LinearGradient */}
       <View style={styles.headerGradient}>
