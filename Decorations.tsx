@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 
 export const GhostLamp = () => (
-  <View style={styles.ghostContainer}>
+  <View style={styles.ghostContainer} pointerEvents="none">
     <View style={styles.ghostBody}>
       <View style={styles.ghostEyeLeft} />
       <View style={styles.ghostEyeRight} />
@@ -11,7 +11,7 @@ export const GhostLamp = () => (
 );
 
 export const CandleJar = () => (
-  <View style={styles.candleContainer}>
+  <View style={styles.candleContainer} pointerEvents="none">
     <View style={styles.candleWax} />
     <View style={styles.candleFlame} />
     <View style={styles.candleLabel}>
@@ -23,13 +23,13 @@ export const CandleJar = () => (
 );
 
 export const PottedPlant = () => (
-  <View style={styles.pottedPlantContainer}>
+  <View style={styles.pottedPlantContainer} pointerEvents="none">
     <Text style={{ fontSize: 50, marginBottom: -10 }}>🪴</Text>
   </View>
 );
 
 export const HangingPlant = () => (
-  <View style={styles.hangingPlantContainer}>
+  <View style={styles.hangingPlantContainer} pointerEvents="none">
     {Array.from({ length: 6 }).map((_, i) => (
       <Text 
         key={i} 
@@ -47,7 +47,7 @@ export const HangingPlant = () => (
 );
 
 export const PhotoFrame = () => (
-  <View style={styles.frameContainer}>
+  <View style={styles.frameContainer} pointerEvents="none">
     <View style={styles.frameInner}>
       <View style={styles.framePhoto}>
         {/* Simple landscape shapes */}
@@ -59,7 +59,7 @@ export const PhotoFrame = () => (
 );
 
 export const HorizontalBooks = () => (
-  <View style={styles.horizontalBooksContainer}>
+  <View style={styles.horizontalBooksContainer} pointerEvents="none">
     <View style={[styles.hBook, { width: 80, backgroundColor: '#EAE1D0' }]} />
     <View style={[styles.hBook, { width: 85, backgroundColor: '#D4A373' }]} />
     <View style={[styles.hBook, { width: 90, backgroundColor: '#EAE1D0' }]} />
@@ -67,7 +67,7 @@ export const HorizontalBooks = () => (
 );
 
 export const PencilCup = () => (
-  <View style={styles.pencilCupContainer}>
+  <View style={styles.pencilCupContainer} pointerEvents="none">
     {/* Pencils */}
     <View style={[styles.pencil, { left: 8, transform: [{ rotate: '-15deg' }] }]} />
     <View style={[styles.pencil, { left: 15, top: -2, transform: [{ rotate: '-5deg' }] }]} />
@@ -82,7 +82,7 @@ export const PencilCup = () => (
 );
 
 export const VintageGlobe = () => (
-  <View style={styles.globeContainer}>
+  <View style={styles.globeContainer} pointerEvents="none">
     <View style={styles.globeBase} />
     <View style={styles.globeStand} />
     <View style={styles.globeArc} />
@@ -94,7 +94,7 @@ export const VintageGlobe = () => (
 );
 
 export const SmallVase = () => (
-  <View style={styles.vaseContainer}>
+  <View style={styles.vaseContainer} pointerEvents="none">
     <Text style={{ position: 'absolute', top: -15, fontSize: 30 }}>🌿</Text>
     <View style={styles.vaseStem} />
     <View style={styles.vaseGlass} />

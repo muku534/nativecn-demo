@@ -22,6 +22,7 @@ export const PAGE_WIDTH = ALBUM_WIDTH / 2;
 export interface BookData {
   id: number;
   title: string;
+  spineTitle?: string;
   color: string;
   thickness: number;
   height: number;
@@ -36,6 +37,112 @@ export interface BookRect {
   width: number;
   height: number;
 }
+
+/**
+ * BookSpineView: Photorealistic, publisher-quality book spine component.
+ * Features:
+ * - Cylindrical 3D lighting (curved highlight on left, deep hinge crease & shadow on right)
+ * - Top & bottom cloth headbands and 3D embossed ribs
+ * - Sharp, crystal-clear typography with high-contrast foil/deboss relief
+ * - 100% mathematically bounded clear zone: text NEVER clips at the top or overlaps ribs!
+ */
+export const BookSpineView = ({
+  album,
+  width,
+  height,
+}: {
+  album: BookData;
+  width: number;
+  height: number;
+}) => {
+  const displayTitle = album.spineTitle || album.title;
+  const isDark = album.titleColor !== '#333' && album.titleColor !== '#111' && album.titleColor !== '#1F1A14';
+
+  const len = displayTitle.length;
+  let fontSize = 8.5;
+  let letterSpacing = 0.5;
+
+  if (len <= 7) {
+    fontSize = 9.5;
+    letterSpacing = 1.0;
+  } else if (len <= 14) {
+    fontSize = 8.5;
+    letterSpacing = 0.5;
+  } else if (len <= 20) {
+    fontSize = 7.8;
+    letterSpacing = 0.3;
+  } else {
+    fontSize = 7.0;
+    letterSpacing = 0.1;
+  }
+
+  // Clear vertical height strictly between ribs (with 14px padding at each end)
+  const availableLength = Math.max(20, height - 28);
+
+  return (
+    <View
+      style={[
+        styles.spineInnerBase,
+        {
+          backgroundColor: album.color,
+          width,
+          height,
+        },
+      ]}
+    >
+      {/* 1. Top & Bottom Headband cloth trims */}
+      <View style={styles.spineTopHeadband} />
+      <View style={styles.spineBottomFootband} />
+
+      {/* 2. Top & Bottom 3D Embossed Ribs */}
+      <View style={styles.spineRibTop}>
+        <View style={styles.spineRibHighlight} />
+        <View style={styles.spineRibShadow} />
+      </View>
+      <View style={styles.spineRibBottom}>
+        <View style={styles.spineRibHighlight} />
+        <View style={styles.spineRibShadow} />
+      </View>
+
+      {/* 3. 3D Cylindrical Curvature & Hinge Groove Shadows */}
+      <View style={styles.spineLeftHighlight} />
+      <View style={styles.spineLeftShine} />
+      <View style={styles.spineRightGroove} />
+      <View style={styles.spineRightShadow} />
+
+      {/* 4. Perfectly Centered, Crisp Typography (Zero Overflow, Zero Clipping) */}
+      <View style={styles.spineTitleArea} pointerEvents="none">
+        <View
+          style={[
+            styles.spineTitleRotatedBox,
+            {
+              width: availableLength,
+              height: width,
+            },
+          ]}
+        >
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.spineTitleText,
+              {
+                color: album.titleColor || (isDark ? '#F5E8C7' : '#1F1A14'),
+                fontSize,
+                letterSpacing,
+                width: availableLength - 4,
+                textShadowColor: isDark ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.45)',
+                textShadowOffset: { width: 0, height: 1 },
+                textShadowRadius: 1,
+              },
+            ]}
+          >
+            {displayTitle}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};
 
 /**
  * EmptyBookSlot: Renders the realistic dark recessed empty slot cavity on the shelf plank
@@ -74,29 +181,12 @@ interface ShelfBookActorProps {
 
 /**
  * ShelfBookActor:
- *
- * 1. PULL OUT:
- *    - Stage 1 (p: 0.00 -> 0.42): "phele same angle me book ko bhar nikalo"
- *      The book slides straight forward out of the shelf slot in the EXACT same initial upright angle
- *      (spine facing front). Clean solid hardcover book. Scale increases smoothly as it comes
- *      forward toward the camera, clearing the bookcase.
- *    - Stage 2 (p: 0.42 -> 0.88): "and then rotate them to this angle (front cover)"
- *      Now that the book is completely in free air, it flies toward center reading position while
- *      executing a smooth 3D rotation: spine rotates away to left (-90°), and the full front cover
- *      swings around to face the user directly.
- *    - Stage 3 (p: 0.88 -> 1.00):
- *      Cushioned settle into reading position, seamless handover to PhotoAlbum.
- *
- * 2. PUT BACK:
- *    - "so first flip the book in initial angle and then put it in shelf"
- *    - Stage 2 Reversed (p: 1.00 -> 0.42):
- *      In mid-air, the book flips back from front cover angle to the INITIAL angle
- *      (spine facing front, cover in depth) while gliding back in front of the shelf slot.
- *    - Stage 1 Reversed (p: 0.42 -> 0.00):
- *      In that EXACT initial angle, the book slides straight back INTO the shelf slot until flush.
- *
- * All motion variables (curX, curY, curW, curH, curScale, rotateX, rotateZ) are 100% C2-continuous
- * across the entire range with zero jumps or hitches.
+ * 1. Pull Out:
+ *    - Stage 1 (p: 0.00 -> 0.42): Slides straight forward out of shelf in exact initial upright angle.
+ *    - Stage 2 (p: 0.42 -> 0.88): In mid-air, 3D yaw rotation reveals full front cover while flying to reading center.
+ *    - Stage 3 (p: 0.88 -> 1.00): Cushioned settle into reading position.
+ * 2. Put Back:
+ *    - In mid-air, flips back to initial spine-facing angle, then slides straight into shelf slot until flush.
  */
 export const ShelfBookActor = ({
   album,
@@ -117,8 +207,7 @@ export const ShelfBookActor = ({
     let rotateZ = 0;
 
     if (p <= 0.42) {
-      // Stage 1: "phele same angle me book ko bhar nikalo" / "then put it in shelf"
-      // Book slides straight along the shelf plank in the EXACT same upright angle
+      // Stage 1: Slide straight forward out of the shelf slot in the exact same angle
       const t1 = interpolate(p, [0, 0.42], [0, 1], Extrapolation.CLAMP);
       curX = origin.x;
       curY = origin.y + t1 * 32;
@@ -128,7 +217,7 @@ export const ShelfBookActor = ({
       rotateX = 0;
       rotateZ = 0;
     } else {
-      // Stage 2 & 3: Mid-air flight & 3D rotation to/from front cover
+      // Stage 2 & 3: Mid-air flight & 3D rotation
       const t2 = interpolate(p, [0.42, 0.90], [0, 1], Extrapolation.CLAMP);
 
       // Parabolic flight arc
@@ -188,8 +277,7 @@ export const ShelfBookActor = ({
     };
   });
 
-  // Spine Face: 100% visible while in shelf & during Stage 1 slide-out.
-  // Rotates smoothly around to left edge during Stage 2.
+  // Spine Face: Rotates smoothly around to left edge during Stage 2
   const spineStyle = useAnimatedStyle(() => {
     const p = pullProgress.value;
 
@@ -212,8 +300,7 @@ export const ShelfBookActor = ({
     };
   });
 
-  // Front Cover Face: hidden inside shelf & during Stage 1.
-  // Swings smoothly into view during Stage 2 ("and then rotate them to this angle").
+  // Front Cover Face: Swings smoothly into view during Stage 2
   const coverStyle = useAnimatedStyle(() => {
     const p = pullProgress.value;
 
@@ -236,7 +323,7 @@ export const ShelfBookActor = ({
     };
   });
 
-  // Contact shadow on the shelf plank during Stage 1
+  // Contact shadow on the shelf plank
   const plankContactShadowStyle = useAnimatedStyle(() => {
     const p = pullProgress.value;
     let translateY = origin.y + origin.height - 2;
@@ -270,7 +357,7 @@ export const ShelfBookActor = ({
         pointerEvents="none"
       />
 
-      {/* THE 3D MOVING BOOK (Clean solid hardcover book - zero wings/flaps) */}
+      {/* THE 3D MOVING BOOK */}
       <Animated.View style={containerStyle} pointerEvents="none">
         {/* 3D TOP EDGE (Page block top & hardcover rim) */}
         <Animated.View
@@ -286,21 +373,11 @@ export const ShelfBookActor = ({
         {/* 1. THE SPINE (Visible in shelf and during Stage 1 slide-out) */}
         <Animated.View
           style={[
-            styles.spineContainer,
-            { backgroundColor: album.color },
+            StyleSheet.absoluteFill,
             spineStyle,
           ]}
         >
-          <View style={styles.spineRidges} />
-          <View style={styles.spineCurveShadow} />
-          <View style={styles.spineCenterWrap}>
-            <Text
-              style={[styles.spineTitle, { color: album.titleColor || 'rgba(255,255,255,0.95)' }]}
-              numberOfLines={1}
-            >
-              {album.title}
-            </Text>
-          </View>
+          <BookSpineView album={album} width={origin.width} height={origin.height} />
         </Animated.View>
 
         {/* 2. THE FRONT COVER (Swings around to face user during Stage 2) */}
@@ -403,48 +480,111 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F3EB',
   },
 
-  // Spine Styles matching the shelf spine pixel-for-pixel (zero double-shadow)
-  spineContainer: {
+  // Photorealistic Spine Base
+  spineInnerBase: {
     borderTopLeftRadius: 4,
     borderBottomLeftRadius: 3,
     borderTopRightRadius: 4,
     borderBottomRightRadius: 3,
-    alignItems: 'center',
-    paddingVertical: 10,
     overflow: 'hidden',
+    position: 'relative',
   },
-  spineCurveShadow: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'transparent',
-    borderLeftWidth: 2.5,
-    borderLeftColor: 'rgba(255, 255, 255, 0.28)',
-    borderRightWidth: 5,
-    borderRightColor: 'rgba(0, 0, 0, 0.3)',
+
+  // Headband cloth trims
+  spineTopHeadband: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
   },
-  spineRidges: {
+  spineBottomFootband: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 2.5,
+    backgroundColor: 'rgba(0, 0, 0, 0.26)',
+  },
+
+  // 3D Embossed Ribs (Top & Bottom)
+  spineRibTop: {
+    position: 'absolute',
+    top: 11,
+    left: 0,
+    right: 0,
+    height: 2.5,
+  },
+  spineRibBottom: {
+    position: 'absolute',
+    bottom: 11,
+    left: 0,
+    right: 0,
+    height: 2.5,
+  },
+  spineRibHighlight: {
+    height: 1.2,
+    backgroundColor: 'rgba(255, 255, 255, 0.24)',
+  },
+  spineRibShadow: {
+    height: 1.3,
+    backgroundColor: 'rgba(0, 0, 0, 0.22)',
+  },
+
+  // Cylindrical 3D Lighting & Grooves
+  spineLeftHighlight: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  spineLeftShine: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 3,
+    width: 3.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+  },
+  spineRightGroove: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 0,
+    width: 1.8,
+    backgroundColor: 'rgba(0, 0, 0, 0.36)',
+  },
+  spineRightShadow: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 1.8,
+    width: 4.5,
+    backgroundColor: 'rgba(0, 0, 0, 0.18)',
+  },
+
+  // Bounded Clear Zone for Typography (NEVER clips, NEVER overlaps ribs)
+  spineTitleArea: {
     position: 'absolute',
     top: 14,
     bottom: 14,
     left: 0,
     right: 0,
-    borderTopWidth: 1.5,
-    borderBottomWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.15)',
-    zIndex: 1,
-  },
-  spineCenterWrap: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 2,
+    overflow: 'hidden',
   },
-  spineTitle: {
-    fontSize: 6.8,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+  spineTitleRotatedBox: {
+    justifyContent: 'center',
+    alignItems: 'center',
     transform: [{ rotate: '90deg' }],
-    width: 130,
+  },
+  spineTitleText: {
     textAlign: 'center',
+    fontWeight: '700',
   },
 
   // 3D Front Cover Face

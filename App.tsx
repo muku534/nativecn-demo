@@ -11,7 +11,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import PhotoAlbum, { PhotoAlbumRef, PAGE_WIDTH, ALBUM_RENDER_HEIGHT } from './PhotoAlbum';
-import { EmptyBookSlot, ShelfBookActor, BookRect } from './ShelfBookTransition';
+import { EmptyBookSlot, ShelfBookActor, BookSpineView, BookRect } from './ShelfBookTransition';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { GhostLamp, CandleJar, PottedPlant, HangingPlant, PhotoFrame, HorizontalBooks, PencilCup, VintageGlobe, SmallVase } from './Decorations';
 import StarsWorld, { WorldMapMode } from './StarsWorld';
@@ -27,47 +27,47 @@ const TARGET_RECT: BookRect = {
 
 const ALBUMS = [
   // SHELF 1 (Top)
-  { id: 1, title: 'Atomic Habits', color: '#F0EAD6', thickness: 27, height: 122, titleColor: '#333' },
-  { id: 2, title: 'The Psychology of Money', color: '#4A5D23', thickness: 27, height: 125, titleColor: '#F0EAD6' },
-  { id: 3, title: 'DUNE', color: '#B35A3D', thickness: 25, height: 120, titleColor: '#F0EAD6' },
-  { id: 4, title: 'Sapiens', color: '#E8DCC2', thickness: 27, height: 124, titleColor: '#333' },
-  { id: 5, title: 'The Hobbit', color: '#2C3E50', thickness: 27, height: 122, titleColor: '#E8DCC2' },
-  { id: 6, title: 'A Little Life', color: '#EBE1D0', thickness: 27, height: 120, titleColor: '#333' },
+  { id: 1, title: 'Atomic Habits', color: '#F0EAD6', thickness: 27, height: 122, titleColor: '#1F1A14' },
+  { id: 2, title: 'The Psychology of Money', spineTitle: 'Psychology of Money', color: '#4A5D23', thickness: 27, height: 125, titleColor: '#F5E8C7' },
+  { id: 3, title: 'DUNE', color: '#B35A3D', thickness: 25, height: 120, titleColor: '#F5E8C7' },
+  { id: 4, title: 'Sapiens', color: '#E8DCC2', thickness: 27, height: 124, titleColor: '#1F1A14' },
+  { id: 5, title: 'The Hobbit', color: '#2C3E50', thickness: 27, height: 122, titleColor: '#F5E8C7' },
+  { id: 6, title: 'A Little Life', color: '#EBE1D0', thickness: 27, height: 120, titleColor: '#1F1A14' },
 
   // SHELF 2
-  { id: 7, title: 'Ikigai', color: '#E6D5C3', thickness: 26, height: 120, titleColor: '#333' },
-  { id: 8, title: 'The Alchemist', color: '#D4A373', thickness: 27, height: 124, titleColor: '#333' },
-  { id: 9, title: 'Mental Focus', color: '#2F4F4F', thickness: 26, height: 122, titleColor: '#F0EAD6' },
-  { id: 10, title: 'Daisy Jones & The Six', color: '#E2A76F', thickness: 27, height: 125, titleColor: '#333' },
-  { id: 11, title: 'Beach Read', color: '#CD5C5C', thickness: 27, height: 120, titleColor: '#111' },
-  { id: 12, title: 'The Silent Patient', color: '#F0EAD6', thickness: 26, height: 123, titleColor: '#333' },
-  { id: 13, title: 'Verity', color: '#1B2631', thickness: 27, height: 125, titleColor: '#D4A373' },
+  { id: 7, title: 'Ikigai', color: '#E6D5C3', thickness: 26, height: 120, titleColor: '#1F1A14' },
+  { id: 8, title: 'The Alchemist', color: '#D4A373', thickness: 27, height: 124, titleColor: '#1F1A14' },
+  { id: 9, title: 'Mental Focus', color: '#2F4F4F', thickness: 26, height: 122, titleColor: '#F5E8C7' },
+  { id: 10, title: 'Daisy Jones & The Six', spineTitle: 'Daisy Jones & The Six', color: '#E2A76F', thickness: 27, height: 125, titleColor: '#1F1A14' },
+  { id: 11, title: 'Beach Read', color: '#CD5C5C', thickness: 27, height: 120, titleColor: '#FFFFFF' },
+  { id: 12, title: 'The Silent Patient', color: '#F0EAD6', thickness: 26, height: 123, titleColor: '#1F1A14' },
+  { id: 13, title: 'Verity', color: '#1B2631', thickness: 27, height: 125, titleColor: '#F5E8C7' },
 
   // SHELF 3
-  { id: 14, title: 'Clean Code', color: '#1C1C1C', thickness: 27, height: 122, titleColor: '#D4A373' },
-  { id: 15, title: 'Design Patterns', color: '#EBE1D0', thickness: 27, height: 124, titleColor: '#333' },
-  { id: 16, title: 'Deep Work', color: '#3A5A40', thickness: 27, height: 120, titleColor: '#D4A373' },
-  { id: 17, title: 'The Pragmatic Programmer', color: '#8B4513', thickness: 27, height: 124, titleColor: '#EBE1D0' },
-  { id: 18, title: 'Think Like a Monk', color: '#E6D5C3', thickness: 27, height: 122, titleColor: '#333' },
-  { id: 19, title: 'Steal Like an Artist', color: '#111111', thickness: 25, height: 118, titleColor: '#FFF' },
-  { id: 20, title: 'Zero to One', color: '#B0C4DE', thickness: 27, height: 122, titleColor: '#333' },
+  { id: 14, title: 'Clean Code', color: '#1C1C1C', thickness: 27, height: 122, titleColor: '#F5E8C7' },
+  { id: 15, title: 'Design Patterns', color: '#EBE1D0', thickness: 27, height: 124, titleColor: '#1F1A14' },
+  { id: 16, title: 'Deep Work', color: '#3A5A40', thickness: 27, height: 120, titleColor: '#F5E8C7' },
+  { id: 17, title: 'The Pragmatic Programmer', spineTitle: 'Pragmatic Programmer', color: '#8B4513', thickness: 27, height: 124, titleColor: '#F5E8C7' },
+  { id: 18, title: 'Think Like a Monk', color: '#E6D5C3', thickness: 27, height: 122, titleColor: '#1F1A14' },
+  { id: 19, title: 'Steal Like an Artist', color: '#111111', thickness: 25, height: 118, titleColor: '#FFFFFF' },
+  { id: 20, title: 'Zero to One', color: '#B0C4DE', thickness: 27, height: 122, titleColor: '#1F1A14' },
 
   // SHELF 4
-  { id: 21, title: 'The Subtle Art of Not Giving a F*ck', color: '#EAE1D0', thickness: 27, height: 122, titleColor: '#333' },
-  { id: 22, title: '1984', color: '#A08D7B', thickness: 25, height: 118, titleColor: '#333' },
-  { id: 23, title: 'The Shining', color: '#1A1C20', thickness: 27, height: 124, titleColor: '#D4A373' },
-  { id: 24, title: 'IT', color: '#6A2E2A', thickness: 28, height: 122, titleColor: '#EAE1D0' },
-  { id: 25, title: 'Misery', color: '#E6D5C3', thickness: 26, height: 120, titleColor: '#333' },
-  { id: 26, title: 'Project Hail Mary', color: '#2B2E33', thickness: 28, height: 125, titleColor: '#EAE1D0' },
+  { id: 21, title: 'The Subtle Art of Not Giving a F*ck', spineTitle: 'The Subtle Art', color: '#EAE1D0', thickness: 27, height: 122, titleColor: '#1F1A14' },
+  { id: 22, title: '1984', color: '#A08D7B', thickness: 25, height: 118, titleColor: '#FFFFFF' },
+  { id: 23, title: 'The Shining', color: '#1A1C20', thickness: 27, height: 124, titleColor: '#F5E8C7' },
+  { id: 24, title: 'IT', color: '#6A2E2A', thickness: 28, height: 122, titleColor: '#F5E8C7' },
+  { id: 25, title: 'Misery', color: '#E6D5C3', thickness: 26, height: 120, titleColor: '#1F1A14' },
+  { id: 26, title: 'Project Hail Mary', color: '#2B2E33', thickness: 28, height: 125, titleColor: '#F5E8C7' },
 
   // SHELF 5 (Bottom)
-  { id: 27, title: 'The Midnight Library', color: '#1C2833', thickness: 27, height: 124, titleColor: '#D4A373' },
-  { id: 28, title: 'The Seven Husbands of Evelyn Hugo', color: '#8B4513', thickness: 27, height: 125, titleColor: '#EAE1D0' },
-  { id: 29, title: 'Carrie Soto is Back', color: '#6B8E23', thickness: 27, height: 122, titleColor: '#FFF' },
-  { id: 30, title: 'Malibu Rising', color: '#5F9EA0', thickness: 27, height: 124, titleColor: '#FFF' },
-  { id: 31, title: 'Happy Place', color: '#D4A373', thickness: 27, height: 120, titleColor: '#111' },
-  { id: 32, title: 'People We Meet On Vacation', color: '#CD5C5C', thickness: 27, height: 122, titleColor: '#FFF' },
-  { id: 33, title: 'Better Ideas Ahead', color: '#F0EAD6', thickness: 27, height: 124, titleColor: '#333' }
+  { id: 27, title: 'The Midnight Library', color: '#1C2833', thickness: 27, height: 124, titleColor: '#F5E8C7' },
+  { id: 28, title: 'The Seven Husbands of Evelyn Hugo', spineTitle: 'The Seven Husbands', color: '#8B4513', thickness: 27, height: 125, titleColor: '#F5E8C7' },
+  { id: 29, title: 'Carrie Soto is Back', color: '#6B8E23', thickness: 27, height: 122, titleColor: '#FFFFFF' },
+  { id: 30, title: 'Malibu Rising', color: '#5F9EA0', thickness: 27, height: 124, titleColor: '#FFFFFF' },
+  { id: 31, title: 'Happy Place', color: '#D4A373', thickness: 27, height: 120, titleColor: '#1F1A14' },
+  { id: 32, title: 'People We Meet On Vacation', spineTitle: 'People We Meet', color: '#CD5C5C', thickness: 27, height: 122, titleColor: '#FFFFFF' },
+  { id: 33, title: 'Better Ideas Ahead', color: '#F0EAD6', thickness: 27, height: 124, titleColor: '#1F1A14' }
 ];
 
 const innerImages = [
@@ -261,6 +261,7 @@ export default function App() {
         key={album.id}
         style={{ marginHorizontal: 1 }}
         activeOpacity={0.88}
+        hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
         onPress={() => handleBookPress(album)}
       >
         <View
@@ -278,20 +279,11 @@ export default function App() {
             }
           }}
           style={[
-            styles.spineContainer,
-            { backgroundColor: album.color, width: album.thickness, height: album.height },
+            styles.spineShadowWrapper,
+            { width: album.thickness, height: album.height },
           ]}
         >
-          <View style={styles.spineRidges} />
-          <View style={styles.spineCurveShadow} />
-          <View style={styles.spineCenterWrap}>
-            <Text
-              style={[styles.spineTitle, { color: album.titleColor || 'rgba(255,255,255,0.95)' }]}
-              numberOfLines={1}
-            >
-              {album.title}
-            </Text>
-          </View>
+          <BookSpineView album={album} width={album.thickness} height={album.height} />
         </View>
       </TouchableOpacity>
     );
@@ -837,52 +829,12 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  spineContainer: {
-    borderTopLeftRadius: 4,
-    borderBottomLeftRadius: 3,
-    borderTopRightRadius: 4,
-    borderBottomRightRadius: 3,
+  spineShadowWrapper: {
     shadowColor: '#000',
     shadowOpacity: 0.35,
     shadowRadius: 4,
     shadowOffset: { width: 2, height: 2 },
     elevation: 5,
-    alignItems: 'center',
-    paddingVertical: 10,
-    overflow: 'hidden',
-  },
-  spineCurveShadow: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'transparent',
-    borderLeftWidth: 2.5,
-    borderLeftColor: 'rgba(255, 255, 255, 0.28)',
-    borderRightWidth: 5,
-    borderRightColor: 'rgba(0, 0, 0, 0.3)',
-  },
-  spineRidges: {
-    position: 'absolute',
-    top: 14,
-    bottom: 14,
-    left: 0,
-    right: 0,
-    borderTopWidth: 1.5,
-    borderBottomWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.15)',
-    zIndex: 1,
-  },
-  spineCenterWrap: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  spineTitle: {
-    fontSize: 6.8,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    transform: [{ rotate: '90deg' }],
-    width: 130,
-    textAlign: 'center',
   },
   ambientBackdrop: {
     ...StyleSheet.absoluteFill,
