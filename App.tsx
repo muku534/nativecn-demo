@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Dimensions, ScrollView, StatusBar, Platform } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import Animated, {
@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import PhotoAlbum, { PhotoAlbumRef, PAGE_WIDTH, ALBUM_RENDER_HEIGHT } from './PhotoAlbum';
 import { EmptyBookSlot, ShelfBookActor, BookSpineView, BookRect } from './ShelfBookTransition';
+import ImageLightbox, { ImagePreviewData } from './ImageLightbox';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { GhostLamp, CandleJar, PottedPlant, HangingPlant, PhotoFrame, HorizontalBooks, PencilCup, VintageGlobe, SmallVase } from './Decorations';
 import StarsWorld, { WorldMapMode } from './StarsWorld';
@@ -85,6 +86,7 @@ export default function App() {
   const [worldMapMode, setWorldMapMode] = useState<WorldMapMode>('globe');
   const [selectedCountryCode, setSelectedCountryCode] = useState<string | null>('IN');
   const [isCosmicInteracting, setIsCosmicInteracting] = useState(false);
+  const [selectedPreviewImage, setSelectedPreviewImage] = useState<ImagePreviewData | null>(null);
 
   const pullProgress = useSharedValue(0);
   const photoAlbumRef = useRef<PhotoAlbumRef>(null);
@@ -143,7 +145,43 @@ export default function App() {
     }
   };
 
+  const preloadAlbumImages = (album: typeof ALBUMS[0]) => {
+    const urls: { uri: string }[] = [];
+    const coverId = album.id + 20;
+    urls.push({ uri: `https://picsum.photos/id/${coverId}/400/600` });
+    urls.push({ uri: `https://picsum.photos/id/${coverId}/1200/1800` });
+
+    innerImages.forEach((id) => {
+      // Standard resolution (used in book layout)
+      urls.push({ uri: `https://picsum.photos/id/${id}/600/800` });
+      urls.push({ uri: `https://picsum.photos/id/${id}/600/400` });
+      urls.push({ uri: `https://picsum.photos/id/${id + 5}/300/300` });
+      urls.push({ uri: `https://picsum.photos/id/${id + 8}/300/300` });
+      urls.push({ uri: `https://picsum.photos/id/${id + 10}/600/400` });
+
+      // High-res resolution (used in lightbox)
+      urls.push({ uri: `https://picsum.photos/id/${id}/1200/1600` });
+      urls.push({ uri: `https://picsum.photos/id/${id}/1500/1000` });
+      urls.push({ uri: `https://picsum.photos/id/${id + 5}/1000/1000` });
+      urls.push({ uri: `https://picsum.photos/id/${id + 8}/1000/1000` });
+      urls.push({ uri: `https://picsum.photos/id/${id + 10}/1500/1000` });
+    });
+
+    try {
+      FastImage.preload(urls);
+    } catch {
+      // Safe fallback
+    }
+  };
+
+  useEffect(() => {
+    // Warm cache on launch with first albums so images load instantaneously
+    preloadAlbumImages(ALBUMS[0]);
+    if (ALBUMS[6]) preloadAlbumImages(ALBUMS[6]);
+  }, []);
+
   const startPullOut = (album: typeof ALBUMS[0], rect: BookRect) => {
+    preloadAlbumImages(album);
     setCanTapBackdropToClose(false);
     setPullingAlbumId(album.id);
     setSelectedAlbum(album);
@@ -178,6 +216,7 @@ export default function App() {
   const handleCloseAlbum = () => {
     if (!selectedAlbum) return;
     if (isAnimating) return;
+    setSelectedPreviewImage(null);
     setCanTapBackdropToClose(false);
     setIsAnimating(true);
 
@@ -351,6 +390,106 @@ export default function App() {
         <Text style={styles.backCoverText}>FINIS</Text>
       </View>
     ];
+  };
+
+  const getImageAtCoordinates = (
+    album: typeof ALBUMS[0],
+    currentSheet: number,
+    x: number,
+    y: number
+  ): ImagePreviewData | null => {
+    // 1. Closed book (Cover)
+    if (currentSheet === 0) {
+      const id = album.id + 20;
+      return {
+        uri: `https://picsum.photos/id/${id}/400/600`,
+        highResUri: `https://picsum.photos/id/${id}/1200/1800`,
+        title: album.title,
+        subtitle: 'Cover Photo • Special Edition',
+        aspectRatio: 400 / 600,
+      };
+    }
+
+    // 2. Open page spreads
+    const isLeft = x < PAGE_WIDTH;
+    const pageIndex = isLeft ? currentSheet * 2 - 1 : currentSheet * 2;
+    const px = isLeft ? x : x - PAGE_WIDTH;
+    const py = y;
+
+    // Pages range from 1 to 6 (page 0 is cover, 7 is back cover)
+    if (pageIndex < 1 || pageIndex > 6) {
+      return null;
+    }
+
+    const innerIndex = pageIndex - 1; // 0 to 5
+    const id = innerImages[innerIndex];
+    const layoutType = innerIndex % 3;
+    const pageNumStr = `Page 0${innerIndex + 1}`;
+
+    if (layoutType === 0) {
+      // Layout 0: Full Bleed Single Image
+      return {
+        uri: `https://picsum.photos/id/${id}/600/800`,
+        highResUri: `https://picsum.photos/id/${id}/1200/1600`,
+        title: album.title,
+        subtitle: `${pageNumStr} • Full Bleed Photo`,
+        aspectRatio: 600 / 800,
+      };
+    } else if (layoutType === 1) {
+      // Layout 1: Split Stack (Two Horizontal Images)
+      const isTop = py < ALBUM_RENDER_HEIGHT / 2;
+      if (isTop) {
+        return {
+          uri: `https://picsum.photos/id/${id}/600/400`,
+          highResUri: `https://picsum.photos/id/${id}/1500/1000`,
+          title: album.title,
+          subtitle: `${pageNumStr} • Upper Landscape`,
+          aspectRatio: 600 / 400,
+        };
+      } else {
+        const bottomId = id + 10;
+        return {
+          uri: `https://picsum.photos/id/${bottomId}/600/400`,
+          highResUri: `https://picsum.photos/id/${bottomId}/1500/1000`,
+          title: album.title,
+          subtitle: `${pageNumStr} • Lower Landscape`,
+          aspectRatio: 600 / 400,
+        };
+      }
+    } else {
+      // Layout 2: Collage Grid (One Large, Two Small)
+      const isTop = py < ALBUM_RENDER_HEIGHT * 0.55;
+      if (isTop) {
+        return {
+          uri: `https://picsum.photos/id/${id}/600/400`,
+          highResUri: `https://picsum.photos/id/${id}/1500/1000`,
+          title: album.title,
+          subtitle: `${pageNumStr} • Hero Landscape`,
+          aspectRatio: 600 / 400,
+        };
+      } else {
+        const isLeftSmall = px < PAGE_WIDTH / 2;
+        if (isLeftSmall) {
+          const smallLeftId = id + 5;
+          return {
+            uri: `https://picsum.photos/id/${smallLeftId}/300/300`,
+            highResUri: `https://picsum.photos/id/${smallLeftId}/1000/1000`,
+            title: album.title,
+            subtitle: `${pageNumStr} • Detail Left`,
+            aspectRatio: 1,
+          };
+        } else {
+          const smallRightId = id + 8;
+          return {
+            uri: `https://picsum.photos/id/${smallRightId}/300/300`,
+            highResUri: `https://picsum.photos/id/${smallRightId}/1000/1000`,
+            title: album.title,
+            subtitle: `${pageNumStr} • Detail Right`,
+            aspectRatio: 1,
+          };
+        }
+      }
+    }
   };
 
   return (
@@ -573,6 +712,13 @@ export default function App() {
                     <PhotoAlbum
                       ref={photoAlbumRef}
                       pages={generatePages(selectedAlbum)}
+                      onDoubleTap={(x, y, currentSheet) => {
+                        if (!selectedAlbum) return;
+                        const target = getImageAtCoordinates(selectedAlbum, currentSheet, x, y);
+                        if (target) {
+                          setSelectedPreviewImage(target);
+                        }
+                      }}
                     />
                   </View>
                 )}
@@ -593,6 +739,12 @@ export default function App() {
                     <Text style={styles.bookInfoTitle} numberOfLines={1}>{selectedAlbum.title}</Text>
                   </View>
                 </Animated.View>
+
+                {/* 5. Separate Large Image Explorer View (Lightbox) */}
+                <ImageLightbox
+                  image={selectedPreviewImage}
+                  onClose={() => setSelectedPreviewImage(null)}
+                />
               </View>
             )}
           </>

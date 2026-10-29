@@ -39,6 +39,7 @@ const SPRING = {
 export interface PhotoAlbumProps {
     pages: React.ReactNode[];
     onProgressChange?: (progress: number) => void;
+    onDoubleTap?: (x: number, y: number, currentSheet: number) => void;
 }
 
 export interface PhotoAlbumRef {
@@ -260,7 +261,7 @@ const BookSpine = ({ progress, sheetCount }: { progress: SharedValue<number>; sh
     );
 };
 
-const PhotoAlbum = forwardRef<PhotoAlbumRef, PhotoAlbumProps>(({ pages, onProgressChange }, ref) => {
+const PhotoAlbum = forwardRef<PhotoAlbumRef, PhotoAlbumProps>(({ pages, onProgressChange, onDoubleTap }, ref) => {
     const progress = useSharedValue(0);
     const context = useSharedValue(0);
     const sheetCount = Math.ceil(pages.length / 2);
@@ -321,6 +322,20 @@ const PhotoAlbum = forwardRef<PhotoAlbumRef, PhotoAlbumProps>(({ pages, onProgre
             });
         });
 
+    const doubleTapGesture = Gesture.Tap()
+        .numberOfTaps(2)
+        .maxDuration(300)
+        .maxDelay(300)
+        .onEnd((e) => {
+            const current = Math.round(progress.value);
+            // Only trigger if resting or nearly resting on a page spread
+            if (Math.abs(progress.value - current) < 0.35) {
+                if (onDoubleTap) {
+                    runOnJS(onDoubleTap)(e.x, e.y, current);
+                }
+            }
+        });
+
     const tapGesture = Gesture.Tap()
         .maxDuration(250)
         .onEnd((e) => {
@@ -347,7 +362,7 @@ const PhotoAlbum = forwardRef<PhotoAlbumRef, PhotoAlbumProps>(({ pages, onProgre
             }
         });
 
-    const gesture = Gesture.Exclusive(panGesture, tapGesture);
+    const gesture = Gesture.Exclusive(panGesture, doubleTapGesture, tapGesture);
 
     const albumAnimatedStyle = useAnimatedStyle(() => {
         const p = progress.value;
